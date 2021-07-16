@@ -1,6 +1,6 @@
 #安装
 ```
-go install github.com/techidea8/restgo/restctl@latest
+go install github.com/techidea8/restctl
 ```
 
 #配置文件说明

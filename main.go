@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"log"
 	"os"
 	"path"
 	"strconv"
@@ -31,7 +32,8 @@ type Column struct {
 	ColumnKey       string        `json:"columnkey"`
 	Extra           string        `json:"extra"`
 	OrdinalPosition string        `json:"position"`
-	SqlStr          template.HTML `json:"sqlstr"`
+	ModelTag          template.HTML `json:"modeltag"`
+	ArgTag          template.HTML `json:"argtag"`
 }
 
 func (col *Column) IsKey() bool {
@@ -99,7 +101,9 @@ func datatype(col Column) string {
 		return t
 	}
 }
-func buildsql(col Column) template.HTML {
+
+//构造tag
+func buildtag(col Column,useGorm bool) template.HTML {
 	uname := transfer(col.ColumnName)
 	lname := lcfirst(uname)
 	if col.ColumnName == "id" {
@@ -109,14 +113,17 @@ func buildsql(col Column) template.HTML {
 	if col.DataType == "date" || col.DataType == "datetime" {
 		ret = ret + ` time_format:"2006-01-02 15:04:05" time_utc:"1"`
 	}
-	ret = ret + ` gorm:"comment:`+col.Comment
-	if col.DataType == "varchar" {
-		if(col.CharMaxLen==0){
-			col.CharMaxLen = 250
+	if useGorm{
+		ret = ret + ` gorm:"comment:`+col.Comment
+		if col.DataType == "varchar" {
+			if(col.CharMaxLen==0){
+				col.CharMaxLen = 250
+			}
+			ret = ret + `;type:varchar(`+ strconv.Itoa(col.CharMaxLen)+`)`
 		}
-		ret = ret + `;type:varchar(`+ strconv.Itoa(col.CharMaxLen)+`)`
+		ret = ret + "\"` "
 	}
-	ret = ret + "\"` "
+
 
 	return template.HTML(ret)
 }
@@ -154,6 +161,7 @@ type Config struct {
 	Package  string `mapstructure:"package" json:"package"`
 	Dstdir   string `mapstructure:"dstdir" json:"dstdir"`
 	Lang     string `mapstructure:"lang" json:"lang"`
+	Tpldir  string `mapstructure:"tpldir" json:"tpldir"`
 }
 
 var db = flag.String("db", "test", "database name")
@@ -167,6 +175,10 @@ var lang = flag.String("l", "go", "code language,eg:go || java || php ")
 //#
 var pkg = flag.String("pkg", "turinapp", "application package")
 var cfgpath = flag.String("c", "./restgo.yaml", "config file path")
+
+//代码模板路径
+var tpldir = flag.String("tpldir", "./tmpl-go", "templete for code ")
+
 
 //#restctl init
 var initit = flag.Bool("init", false, "init restgo project")
@@ -248,6 +260,12 @@ func main() {
 		config.Database = *db
 	}
 
+	//设置模板
+	if *tpldir!="./tmpl-go"{
+		v.SetDefault("tpldir", *tpldir)
+		config.Tpldir = *tpldir
+	}
+
 	if *table != "test" {
 		config.Table = *table
 		v.SetDefault("table", *table)
@@ -271,6 +289,8 @@ func main() {
 		v.SetDefault("password", *passwd)
 		config.Password = *passwd
 	}
+
+
 
 	if *addr != "127.0.0.1:3306" {
 		v.SetDefault("addr", *addr)
@@ -314,6 +334,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+	//
 	for rows.Next() {
 		col :=Column{}
 		err := rows.Scan(&col.ColumnName, &col.DataType,&col.CharMaxLen, &col.ColumnType, &col.Nump, &col.Nums, &col.Comment, &col.ColumnKey, &col.Extra, &col.OrdinalPosition)
@@ -323,7 +344,8 @@ func main() {
 		}
 		//转换成abC的形式
 		col.ColumnJsonName = lcfirst(transfer(col.ColumnName))
-		col.SqlStr = buildsql(col)
+		col.ModelTag = buildtag(col,true)
+		col.ArgTag = buildtag(col,true)
 		columns = append(columns, col)
 	}
 
@@ -332,15 +354,17 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+
 	tpls := []string{
 		"server/args", "server/model", "server/ctrl", "server/service",
 	}
+
 	for _, tpl := range tpls {
 		os.MkdirAll(config.Dstdir+"/"+tpl, fs.FileMode(os.O_CREATE))
 		f, err := os.OpenFile(config.Dstdir+"/"+tpl+"/"+model+"."+config.Lang, os.O_WRONLY|os.O_CREATE, 0766)
 		if err != nil {
-			fmt.Println(err)
-			return
+			log.Fatalln(err.Error())
+				return
 		}
 
 		tmpl.ExecuteTemplate(f, tpl, DstData{

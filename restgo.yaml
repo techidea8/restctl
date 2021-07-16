@@ -1,6 +1,7 @@
 addr: 127.0.0.1:3306
 database: test
 dstdir: ./
+lang: go
 model: test
 package: turinapp
 password: test

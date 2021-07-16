@@ -69,7 +69,7 @@
     :title="dialogType==='edit'?'修改':'添加'"
     :visible.sync="dialogVisible"
     :direction="dialogType==='edit'?'rtl':'ltr'"
-    ref="drawer"
+    :close-on-click-modal="false"
     >
       
     <el-form :model="dataobject" label-width="80px" style="margin-left:20px;margin-right:20px" label-position="left">
@@ -103,13 +103,13 @@
                             <el-input v-model="dataobject.{{$v.ColumnJsonName}}" type="number" placeholder="输入"></el-input>
                         </el-form-item>
                     {{else if eq $v.DataType  "varchar"}}
-                        {{if gt $v.CharMaxLen 30}}
+                        {{if gt $v.CharMaxLen 100}}
                             <el-form-item label="{{$v.Comment}}">
                                 <el-input v-model="dataobject.{{$v.ColumnJsonName}}" type="textarea" placeholder="输入"></el-input>
                             </el-form-item>
                         {{else}}
                         <el-form-item label="{{$v.Comment}}">
-                            <el-input v-model="dataobject.{{$v.ColumnJsonName}}" type="textarea" placeholder="输入"></el-input>
+                            <el-input v-model="dataobject.{{$v.ColumnJsonName}}" type="text" placeholder="输入"></el-input>
                         </el-form-item>
                         {{end}}
                    {{else}}

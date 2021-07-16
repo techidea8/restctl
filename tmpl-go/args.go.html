@@ -10,7 +10,7 @@ type {{.Model}} struct{
     restgo.PageArg
 	Total int `json:"total" form:"total"`
 	{{range $i,$v := .Columns}}
-        {{ $v.SqlStr }}
+        {{ $v.ArgTag }}
     {{end}}
 }
 
