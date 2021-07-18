@@ -120,6 +120,8 @@ func buildtag(col Column,useGorm bool) template.HTML {
 			ret = ret + `;type:varchar(`+ strconv.Itoa(col.CharMaxLen)+`)`
 		}
 		ret = ret + "\"` "
+	}else{
+		ret = ret + "`"
 	}
 
 
