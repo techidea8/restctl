@@ -1,4 +1,4 @@
-module github.com/techidea8/restgo/restctl
+module github.com/techidea8/restctl
 
 go 1.16
 
