@@ -5,78 +5,77 @@ go install github.com/techidea8/restctl
 
 #配置文件说明
 ```yaml
-#数据库地址
-addr: 127.0.0.1:3306
-#数据库名称
-database: test
-#数据库用户名
-username: root
-#数据库密码
-password: test
-#要对哪个表进行处理
-table: test
-#模型名称
-model: test
-#应用包名称
-package: turinapp
-#代码输出目录
-dstdir: ./
-#默认语言输出go/java
+#数据库连接串,目前只支持mysql
+dns: root:root@(127.0.0.1:3306)/test?charset=utf8mb4&loc=Local
+#前端代码存放底子好
+frontdir: ./console/src
+#后端代码语言:go|java
 lang: go
+#对应表名称
+table: test
+#生成模型文件
+model: test
+#对应项目package
+package: turingapp
+#服务端代码路径
+serverdir: ./server
+#代码模板
+tpldir: ./tmpl-go
 ```
 
 
 #使用方法
 ```bash
-Usage of restctl:
-  -addr string
-        mysql database host (default "127.0.0.1:3306")
+Usage of restctl.exe:
   -c string
         config file path (default "./restgo.yaml")
-  -db string
-        database name (default "test")
-  -init
-        init restgo project
+  -dns string
+        dns link to mysql (default "root:root@(127.0.0.1:3306)/test")
+  -frontdir string
+        dir for front code (default "./console/src")
+  -l string
+        code language,eg:go || java || php  (default "go")
   -m string
         out model
-  -o string
-        dist dir (default "./")
-  -p string
-        password
   -pkg string
         application package (default "turinapp")
+  -serverdir string
+        dir for server code (default "./server")
   -t string
         table name (default "test")
-  -u string
-        user name (default "root")
+  -tpldir string
+        templete for code  (default "./tmpl-go")
   -v    show restctl version
 ```
 
 # 效果
 系统将自动生成如下文件
 ```bash
-restctl -addr 127.0.0.1:3306 -c ./restgo.yaml -db test -t biz_order -m order  -u root -p root  -o ./code -pkg turingapp
+restctl -c ./restgo.yaml  -t biz_activity -m activity 
 ```
 ```bash
-├─server
-│  ├─args
-│  │      order.go
-│  │
-│  ├─ctrl
-│  │      order.go
-│  │
-│  ├─model
-│  │      order.go
-│  │
-│  └─service
-│          order.go
+├─console
+│  └─src
+│      ├─api
+│      │      activity.js
+│      │
+│      └─views
+│          └─activity
+│                  list.vue
 │
-└─ui
-    ├─api
-    │      order.js
-    │
-    └─view
-        └─order
-                list.vue
+├─server
+│  └─server
+│      ├─args
+│      │      activity.go
+│      │
+│      ├─ctrl
+│      │      activity.go
+│      │
+│      ├─model
+│      │      activity.go
+│      │
+│      └─service
+│              activity.go
+
 
 ```

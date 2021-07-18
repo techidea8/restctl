@@ -4,14 +4,12 @@ package main
 //COLUMN_NAME,DATA_TYPE,COLUMN_TYPE
 import (
 	"database/sql"
-	"embed"
 	"flag"
 	"fmt"
 	"html/template"
 	"io/fs"
 	"log"
 	"os"
-	"path"
 	"strconv"
 	"strings"
 	"unicode"
@@ -128,49 +126,26 @@ func buildtag(col Column,useGorm bool) template.HTML {
 	return template.HTML(ret)
 }
 
-//静态资源处理
-
-
-
-type fsFunc func(name string) (fs.File, error)
-
-func (f fsFunc) Open(name string) (fs.File, error) {
-	return f(name)
-}
-
-func TempleteFs(assets embed.FS, root string) fs.FS {
-	handler := fsFunc(func(name string) (fs.File, error) {
-		assetPath := path.Join(root, name)
-		// If we can't find the asset, fs can handle the error
-		file, err := assets.Open(assetPath)
-		if err != nil {
-			return nil, err
-		}
-		return file, err
-	})
-	return handler
-}
-
+//配置文件
 type Config struct {
-	Database string `mapstructure:"database" json:"database"`
+
 	Table    string `mapstructure:"table" json:"table"`
-	Username string `mapstructure:"username" json:"username"`
-	Password string `mapstructure:"password" json:"password"`
-	Addr     string `mapstructure:"addr" json:"addr"`
+	Dns     string `mapstructure:"dns" json:"dns"`
 	Model    string `mapstructure:"model" json:"model"`
 	Package  string `mapstructure:"package" json:"package"`
 	Dstdir   string `mapstructure:"dstdir" json:"dstdir"`
 	Lang     string `mapstructure:"lang" json:"lang"`
 	Tpldir  string `mapstructure:"tpldir" json:"tpldir"`
+	ServerDir string `mapstructure:"serverdir" json:"serverdir"`
+	FrontDir string `mapstructure:"frontdir" json:"frontdir"`
 }
 
-var db = flag.String("db", "test", "database name")
 var table = flag.String("t", "test", "table name")
 var modelin = flag.String("m", "", "out model")
-var dstdir = flag.String("o", "./", "dist dir")
-var user = flag.String("u", "root", "user name")
-var passwd = flag.String("p", "", "password")
-var addr = flag.String("addr", "127.0.0.1:3306", "mysql database host")
+
+const  dnsStr =  "root:root@(127.0.0.1:3306)/test"
+var dns = flag.String("dns", dnsStr, "dns link to mysql")
+
 var lang = flag.String("l", "go", "code language,eg:go || java || php ")
 //#
 var pkg = flag.String("pkg", "turinapp", "application package")
@@ -179,9 +154,12 @@ var cfgpath = flag.String("c", "./restgo.yaml", "config file path")
 //代码模板路径
 var tpldir = flag.String("tpldir", "./tmpl-go", "templete for code ")
 
+//前端代码路径
+var serverdir = flag.String("serverdir", "./server", "dir for server code")
 
-//#restctl init
-var initit = flag.Bool("init", false, "init restgo project")
+//前端代码路径
+var frontdir = flag.String("frontdir", "./console/src", "dir for front code")
+
 
 
 var showversion = flag.Bool("v", false, "show restctl version")
@@ -189,7 +167,14 @@ var showversion = flag.Bool("v", false, "show restctl version")
 var model = ""
 var config *Config = new(Config)
 
-const version = `restctl version @0.0.6,all rights reserved,email=271151388@qq.com,author=winlion`
+const version = `
+ ____  _____ ____  _____  ____  _____  _    
+/  __\/  __// ___\/__ __\/   _\/__ __\/ \   
+|  \/||  \  |    \  / \  |  /    / \  | |   
+|    /|  /_ \___ |  | |  |  \_   | |  | |_/\
+\_/\_\\____\\____/  \_/  \____/  \_/  \____/@0.0.7,
+email=271151388@qq.com,author=winlion,all rights reserved!
+`
 
 func PathExists(path string) (bool, error) {
 	_, err := os.Stat(path)
@@ -231,33 +216,34 @@ func main() {
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 	v.Unmarshal(config)
-	if config.Database == "" {
-		v.SetDefault("database", "test")
-	}
-	if config.Addr == "" {
-		v.SetDefault("addr", "127.0.1:3306")
-	}
-	if config.Dstdir == "" {
-		v.SetDefault("dstdir", "./")
-	}
+
 	if config.Model == "" {
 		v.SetDefault("model", "test")
 	}
 	if config.Table == "" {
 		v.SetDefault("table", "test")
 	}
-	if config.Username == "" {
-		v.SetDefault("username", "root")
-	}
-	if config.Password == "" {
-		v.SetDefault("password", "root")
-	}
+
 	if config.Lang == "" {
 		v.SetDefault("lang", "go")
 	}
-	if *db != "test" {
-		v.SetDefault("database", *db)
-		config.Database = *db
+
+	//设置模板
+	if *tpldir!="./tmpl-go"{
+		v.SetDefault("tpldir", *tpldir)
+		config.Tpldir = *tpldir
+	}
+
+	//设置模板
+	if *serverdir!="./server"{
+		v.SetDefault("serverdir", *serverdir)
+		config.ServerDir = *serverdir
+	}
+
+	//设置模板
+	if *frontdir!="./console/src"{
+		v.SetDefault("frontdir", *frontdir)
+		config.ServerDir = *frontdir
 	}
 
 	//设置模板
@@ -275,26 +261,10 @@ func main() {
 		v.SetDefault("model", *modelin)
 	}
 
-	if *dstdir != "./" {
-		config.Dstdir = *dstdir
-		v.SetDefault("dstdir", *dstdir)
-	}
 
-	if *user != "root" {
-		config.Username = *user
-		v.SetDefault("username", *user)
-	}
-
-	if *passwd != "" {
-		v.SetDefault("password", *passwd)
-		config.Password = *passwd
-	}
-
-
-
-	if *addr != "127.0.0.1:3306" {
-		v.SetDefault("addr", *addr)
-		config.Addr = *addr
+	if *dns != dnsStr {
+		v.SetDefault("dns", *dns)
+		config.Dns = *dns
 	}
 	//如果指定默认-pkg参数 则 默认package
 	if *pkg != "turinapp" {
@@ -319,7 +289,7 @@ func main() {
 	}
 	model = strings.ToLower(model)
 	// Open方法第二个参数:  用户名:密码@协议(ip:端口)/数据库
-	dnsstr := fmt.Sprintf("%s:%s@tcp(%s)/%s", config.Username, config.Password, config.Addr, config.Database)
+	dnsstr := config.Dns
 	//fmt.Println(dnsstr)
 	MtsqlDb, err := sql.Open("mysql", dnsstr)
 
@@ -329,7 +299,14 @@ func main() {
 	}
 	defer MtsqlDb.Close()
 	columns := make([]Column, 0)
-	rows, err := MtsqlDb.Query(`select COLUMN_NAME ,DATA_TYPE,IFNULL(CHARACTER_MAXIMUM_LENGTH,0),COLUMN_TYPE,IFNULL(NUMERIC_PRECISION,0),IFNULL(NUMERIC_SCALE,0),COLUMN_COMMENT,column_key,extra,ORDINAL_POSITION  from information_schema.COLUMNS where  table_schema = ? and  table_name = ?`, config.Database,config.Table)
+
+	//解析得到数据库名称
+	dbname := "test"
+	arr := strings.Split(config.Dns,"/")
+	arr2 := strings.Split(arr[1],"?")
+	dbname =  arr2[0]
+
+	rows, err := MtsqlDb.Query(`select COLUMN_NAME ,DATA_TYPE,IFNULL(CHARACTER_MAXIMUM_LENGTH,0),COLUMN_TYPE,IFNULL(NUMERIC_PRECISION,0),IFNULL(NUMERIC_SCALE,0),COLUMN_COMMENT,column_key,extra,ORDINAL_POSITION  from information_schema.COLUMNS where  table_schema = ? and  table_name = ?`, dbname,config.Table)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -345,7 +322,7 @@ func main() {
 		//转换成abC的形式
 		col.ColumnJsonName = lcfirst(transfer(col.ColumnName))
 		col.ModelTag = buildtag(col,true)
-		col.ArgTag = buildtag(col,true)
+		col.ArgTag = buildtag(col,false)
 		columns = append(columns, col)
 	}
 
@@ -360,8 +337,8 @@ func main() {
 	}
 
 	for _, tpl := range tpls {
-		os.MkdirAll(config.Dstdir+"/"+tpl, fs.FileMode(os.O_CREATE))
-		f, err := os.OpenFile(config.Dstdir+"/"+tpl+"/"+model+"."+config.Lang, os.O_WRONLY|os.O_CREATE, 0766)
+		os.MkdirAll(config.ServerDir+"/"+tpl, fs.FileMode(os.O_CREATE))
+		f, err := os.OpenFile(config.ServerDir+"/"+tpl+"/"+model+"."+config.Lang, os.O_WRONLY|os.O_CREATE, 0766)
 		if err != nil {
 			log.Fatalln(err.Error())
 				return
@@ -375,8 +352,8 @@ func main() {
 		})
 	}
 
-	os.MkdirAll(config.Dstdir+"/ui/views/"+model, fs.FileMode(os.O_CREATE))
-	f, err := os.OpenFile(config.Dstdir+"/ui/views/"+model+"/list.vue", os.O_WRONLY|os.O_CREATE, 0766)
+	os.MkdirAll(config.FrontDir+"/views/"+model, fs.FileMode(os.O_CREATE))
+	f, err := os.OpenFile(config.FrontDir+"/views/"+model+"/list.vue", os.O_WRONLY|os.O_CREATE, 0766)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -389,8 +366,8 @@ func main() {
 		Columns: columns,
 	})
 	//并不需要创建目录
-	os.MkdirAll(*dstdir+"/ui/api/", fs.FileMode(os.O_CREATE))
-	f, err = os.OpenFile(*dstdir+"/ui/api/"+model+".js", os.O_WRONLY|os.O_CREATE, 0766)
+	os.MkdirAll(config.FrontDir+"/api/", fs.FileMode(os.O_CREATE))
+	f, err = os.OpenFile(config.FrontDir+"/api/"+model+".js", os.O_WRONLY|os.O_CREATE, 0766)
 	if err != nil {
 		fmt.Println(err)
 		return
