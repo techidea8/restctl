@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode"
@@ -156,14 +157,6 @@ var cfgpath = flag.String("c", "./restgo.yaml", "config file path")
 //代码模板路径
 var tpldir = flag.String("tpldir", "./tmpl-go", "templete for code ")
 
-//前端代码路径
-var serverdir = flag.String("serverdir", "./server", "dir for server code")
-
-//前端代码路径
-var frontdir = flag.String("frontdir", "./console/src", "dir for front code")
-
-
-
 var showversion = flag.Bool("v", false, "show restctl version")
 
 var model = ""
@@ -236,17 +229,7 @@ func main() {
 		config.Tpldir = *tpldir
 	}
 
-	//设置模板
-	if *serverdir!="./server"{
-		v.SetDefault("serverdir", *serverdir)
-		config.ServerDir = *serverdir
-	}
 
-	//设置模板
-	if *frontdir!="./console/src"{
-		v.SetDefault("frontdir", *frontdir)
-		config.ServerDir = *frontdir
-	}
 
 	//设置模板
 	if *tpldir!="./tmpl-go"{
@@ -328,58 +311,39 @@ func main() {
 		columns = append(columns, col)
 	}
 
-	tmpl, err :=template.ParseGlob("tmpl-"+config.Lang+"/*")
+	tmpls, err :=template.ParseGlob(config.Tpldir+"/*")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	tpls := []string{
-		"server/args", "server/model", "server/ctrl", "server/service",
-	}
 
-	for _, tpl := range tpls {
-		os.MkdirAll(config.ServerDir+"/"+tpl, fs.FileMode(os.O_CREATE))
-		f, err := os.OpenFile(config.ServerDir+"/"+tpl+"/"+model+"."+config.Lang, os.O_WRONLY|os.O_CREATE, 0766)
+
+	for _, tpl := range tmpls.Templates() {
+		tplName := tpl.Name()
+		//过滤掉以html结尾的
+		if(strings.HasSuffix(tplName,".html")){
+			continue
+		}
+		//将
+		dstFile := strings.ReplaceAll(tplName,"[model]",config.Model)
+		dstFile = strings.TrimSuffix(dstFile,".tpl")
+		os.MkdirAll(filepath.Dir(dstFile), fs.FileMode(os.O_CREATE))
+		//
+		f, err := os.OpenFile(dstFile, os.O_WRONLY|os.O_CREATE, 0766)
 		if err != nil {
 			log.Fatalln(err.Error())
 				return
 		}
 
-		tmpl.ExecuteTemplate(f, tpl, DstData{
+		tpl.ExecuteTemplate(f, tplName, DstData{
 			Package: config.Package,
 			Model:   ucfirst(transfer(model)),
 			ModelL:  lcfirst(transfer(model)),
 			Columns: columns,
+			ModelApi: template.JS(lcfirst(transfer(model))+"Api"),
 		})
 	}
-
-	os.MkdirAll(config.FrontDir+"/views/"+model, fs.FileMode(os.O_CREATE))
-	f, err := os.OpenFile(config.FrontDir+"/views/"+model+"/list.vue", os.O_WRONLY|os.O_CREATE, 0766)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	tmpl.ExecuteTemplate(f, "view/list", DstData{
-		Package: config.Package,
-		Model:   ucfirst(transfer(model)),
-		ModelL:  lcfirst(transfer(model)),
-		ModelApi: template.JS(lcfirst(transfer(model))+"Api"),
-		Columns: columns,
-	})
-	//并不需要创建目录
-	os.MkdirAll(config.FrontDir+"/api/", fs.FileMode(os.O_CREATE))
-	f, err = os.OpenFile(config.FrontDir+"/api/"+model+".js", os.O_WRONLY|os.O_CREATE, 0766)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	tmpl.ExecuteTemplate(f, "view/api", DstData{
-		Package: config.Package,
-		Model:   ucfirst(transfer(model)),
-		ModelL:  lcfirst(transfer(model)),
-		ModelApi: template.JS(lcfirst(transfer(model))+"Api"),
-		Columns: columns,
-	})
+	fmt.Println("generate code for " + config.Model + " success!")
 
 }
