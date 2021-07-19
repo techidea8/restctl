@@ -149,7 +149,6 @@ var modelin = flag.String("m", "", "out model")
 const  dnsStr =  "root:root@(127.0.0.1:3306)/test"
 var dns = flag.String("dns", dnsStr, "dns link to mysql")
 
-var lang = flag.String("l", "go", "code language,eg:go || java || php ")
 //#
 var pkg = flag.String("pkg", "turinapp", "application package")
 var cfgpath = flag.String("c", "./restgo.yaml", "config file path")
@@ -219,9 +218,7 @@ func main() {
 		v.SetDefault("table", "test")
 	}
 
-	if config.Lang == "" {
-		v.SetDefault("lang", "go")
-	}
+
 
 	//设置模板
 	if *tpldir!="./tmpl-go"{
@@ -257,11 +254,7 @@ func main() {
 		config.Package = *pkg
 	}
 
-	//如果指定默认-pkg参数 则 默认package
-	if *lang != "go" {
-		v.SetDefault("lang", *lang)
-		config.Lang = *lang
-	}
+
 
 	v.WriteConfig()
 	if *showversion {
