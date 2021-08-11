@@ -1,5 +1,7 @@
 dns: root:root@(127.0.0.1:3306)/test?charset=utf8mb4&loc=Local
+lang: go
 model: test
 package: turingapp
+serverdir: ./
 table: test
 tpldir: ./tmpl-go

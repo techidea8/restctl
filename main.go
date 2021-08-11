@@ -17,6 +17,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/spf13/viper"
+
 )
 
 type Column struct {
@@ -88,6 +89,9 @@ var datatypemap map[string]string = map[string]string{
 	"bit":      "int",
 	"decimal":  "float64",
 	"numeric":  "float64",
+	"float":  "float64",
+	"text":"string",
+	"tinyint":"int",
 }
 
 //Col int
@@ -100,7 +104,18 @@ func datatype(col Column) string {
 		return t
 	}
 }
-
+var baseModel []string=[]string{
+	"create_at","delete_at","update_at","deleted",
+}
+func contains(arr []string,str string) bool{
+	ret := false
+	for _,v:=range arr{
+		if v==str{
+			ret = true
+		}
+	}
+	return ret
+}
 //构造tag
 func buildtag(col Column,useGorm bool) template.HTML {
 	uname := transfer(col.ColumnName)
@@ -108,11 +123,16 @@ func buildtag(col Column,useGorm bool) template.HTML {
 	if col.ColumnName == "id" {
 		return `restgo.BaseModel`
 	}
+	//如果是一些关键数值那么直接处理
+    if contains(baseModel,col.ColumnName){
+    	return ""
+	}
 	ret := uname + " " + datatype(col) + " " + " `" + "json:\"" + lname + "\" form:\"" + lname + "\""
 	if col.DataType == "date" || col.DataType == "datetime" {
 		ret = ret + ` time_format:"2006-01-02 15:04:05" time_utc:"1"`
 	}
 	if useGorm{
+
 		ret = ret + ` gorm:"comment:`+col.Comment
 		if col.DataType == "varchar" {
 			if(col.CharMaxLen==0){
@@ -158,15 +178,21 @@ var tpldir = flag.String("tpldir", "./tmpl-go", "templete for code ")
 
 var showversion = flag.Bool("v", false, "show restctl version")
 
+//根据数据库生成全部代码
+var reverse = flag.Bool("reverse", false, "generate code from all table in curent database")
+var trimprefix = flag.String("trimprefix", "", "trim the prefix of tablename used for model")
+
 var model = ""
 var config *Config = new(Config)
+
+
 
 const version = `
  ____  _____ ____  _____  ____  _____  _    
 /  __\/  __// ___\/__ __\/   _\/__ __\/ \   
 |  \/||  \  |    \  / \  |  /    / \  | |   
 |    /|  /_ \___ |  | |  |  \_   | |  | |_/\
-\_/\_\\____\\____/  \_/  \____/  \_/  \____/ restcrl@0.0.2,
+\_/\_\\____\\____/  \_/  \____/  \_/  \____/ restcrl@0.0.5,
 email=271151388@qq.com,author=winlion,all rights reserved!
 `
 
@@ -182,6 +208,7 @@ func PathExists(path string) (bool, error) {
 }
 func main() {
 	if len(os.Args) == 1 {
+		fmt.Println(version)
 		flag.CommandLine.Parse([]string{"-h"})
 	} else {
 		flag.Parse()
@@ -276,67 +303,99 @@ func main() {
 		return
 	}
 	defer MtsqlDb.Close()
-	columns := make([]Column, 0)
+
 
 	//解析得到数据库名称
 	dbname := "test"
 	arr := strings.Split(config.Dns,"/")
 	arr2 := strings.Split(arr[1],"?")
 	dbname =  arr2[0]
-
-	rows, err := MtsqlDb.Query(`select COLUMN_NAME ,DATA_TYPE,IFNULL(CHARACTER_MAXIMUM_LENGTH,0),COLUMN_TYPE,IFNULL(NUMERIC_PRECISION,0),IFNULL(NUMERIC_SCALE,0),COLUMN_COMMENT,column_key,extra,ORDINAL_POSITION  from information_schema.COLUMNS where  table_schema = ? and  table_name = ?`, dbname,config.Table)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	//
-	for rows.Next() {
-		col :=Column{}
-		err := rows.Scan(&col.ColumnName, &col.DataType,&col.CharMaxLen, &col.ColumnType, &col.Nump, &col.Nums, &col.Comment, &col.ColumnKey, &col.Extra, &col.OrdinalPosition)
-		if err!=nil{
-			fmt.Println(err.Error())
+    tables := make([]string,0)
+    if !*reverse{
+		tables = append(tables,config.Table)
+	}else {
+		rows, err := MtsqlDb.Query(`select table_name from information_schema.tables where table_schema=?`, dbname);
+		if err != nil {
+			fmt.Println(err)
 			return
 		}
-		//转换成abC的形式
-		col.ColumnJsonName = lcfirst(transfer(col.ColumnName))
-		col.ModelTag = buildtag(col,true)
-		col.ArgTag = buildtag(col,false)
-		columns = append(columns, col)
-	}
-
-	tmpls, err :=template.ParseGlob(config.Tpldir+"/*")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-
-
-	for _, tpl := range tmpls.Templates() {
-		tplName := tpl.Name()
-		//过滤掉以html结尾的
-		if(strings.HasSuffix(tplName,".html")){
-			continue
-		}
-		//将
-		dstFile := strings.ReplaceAll(tplName,"[model]",config.Model)
-		dstFile = strings.TrimSuffix(dstFile,".tpl")
-		os.MkdirAll(filepath.Dir(dstFile), fs.FileMode(os.O_CREATE))
-		//
-		f, err := os.OpenFile(dstFile, os.O_WRONLY|os.O_CREATE, 0766)
-		if err != nil {
-			log.Fatalln(err.Error())
+		for rows.Next() {
+			tablename := ""
+			err := rows.Scan(&tablename)
+			if err != nil {
+				fmt.Println(err)
 				return
+			}
+			tables = append(tables, tablename)
 		}
+		tmpls, err := template.ParseGlob(config.Tpldir + "/*")
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		//fmt.Println("tables->"+strings.Join(tables,","))
+		for _, tablename := range tables {
+			columns := make([]Column, 0)
+			model = strings.TrimPrefix(tablename, *trimprefix)
+			rows, err := MtsqlDb.Query(`select COLUMN_NAME ,DATA_TYPE,IFNULL(CHARACTER_MAXIMUM_LENGTH,0),COLUMN_TYPE,IFNULL(NUMERIC_PRECISION,0),IFNULL(NUMERIC_SCALE,0),COLUMN_COMMENT,column_key,extra,ORDINAL_POSITION  from information_schema.COLUMNS where  table_schema = ? and  table_name = ?`, dbname, tablename)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			//
+			for rows.Next() {
 
-		tpl.ExecuteTemplate(f, tplName, DstData{
-			Package: config.Package,
-			Model:   ucfirst(transfer(model)),
-			ModelL:  lcfirst(transfer(model)),
-			Columns: columns,
-			ModelApi: template.JS(lcfirst(transfer(model))+"Api"),
-		})
+				col := Column{}
+				err := rows.Scan(&col.ColumnName, &col.DataType, &col.CharMaxLen, &col.ColumnType, &col.Nump, &col.Nums, &col.Comment, &col.ColumnKey, &col.Extra, &col.OrdinalPosition)
+				if err != nil {
+					fmt.Println(err.Error())
+					return
+				}
+				//转换成abC的形式
+				col.ColumnJsonName = lcfirst(transfer(col.ColumnName))
+				col.ModelTag = buildtag(col, true)
+				col.ArgTag = buildtag(col, false)
+				columns = append(columns, col)
+			}
+
+
+			//输出模板
+			dstdata := new(DstData)
+			dstdata.Package =  config.Package
+			dstdata.Model =ucfirst(transfer(model))
+			dstdata.ModelL = lcfirst(transfer(model))
+			dstdata.Columns = columns
+			dstdata.ModelApi = template.JS(lcfirst(transfer(model)) + "Api")
+
+			for _, tpl := range tmpls.Templates() {
+				tplName := tpl.Name()
+				//过滤掉以html结尾的
+				if (strings.HasSuffix(tplName, ".html")) {
+					continue
+				}
+				//将
+				dstFile := strings.ReplaceAll(tplName, "[model]", model)
+				dstFile = strings.TrimSuffix(dstFile, ".tpl")
+				os.MkdirAll(filepath.Dir(dstFile), fs.FileMode(os.O_CREATE))
+
+				f, err := os.OpenFile(dstFile, os.O_WRONLY|os.O_CREATE, 0766)
+
+				if err != nil {
+					log.Fatalln(err.Error())
+					return
+				}
+				//文件需要再次清空
+				err = f.Truncate(0);
+				if err != nil {
+					log.Fatalln(err.Error())
+					return
+				}
+				tpl.ExecuteTemplate(f, tplName, *dstdata)
+				f.Close()
+			}
+			fmt.Println("generate code "+ tablename +"->" +model + " √")
+		}
 	}
-	fmt.Println("generate code for " + config.Model + " success!")
+
 
 }
