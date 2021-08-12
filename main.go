@@ -192,8 +192,10 @@ const version = `
 /  __\/  __// ___\/__ __\/   _\/__ __\/ \   
 |  \/||  \  |    \  / \  |  /    / \  | |   
 |    /|  /_ \___ |  | |  |  \_   | |  | |_/\
-\_/\_\\____\\____/  \_/  \____/  \_/  \____/ restctl@0.0.6,
+\_/\_\\____\\____/  \_/  \____/  \_/  \____/ restctl@0.0.7,
+
 email=271151388@qq.com,author=winlion,all rights reserved!
+
 `
 
 func PathExists(path string) (bool, error) {
@@ -337,7 +339,20 @@ func main() {
 		//fmt.Println("tables->"+strings.Join(tables,","))
 		for _, tablename := range tables {
 			columns := make([]Column, 0)
-			model = strings.TrimPrefix(tablename, *trimprefix)
+			//是否从数据库生成
+			if *reverse{
+				model = strings.TrimPrefix(tablename, *trimprefix)
+			}else{
+				//不是
+				if(*modelin==""){
+					model = tablename
+				}else{
+					model = *modelin
+				}
+
+			}
+
+
 			rows, err := MtsqlDb.Query(`select COLUMN_NAME ,DATA_TYPE,IFNULL(CHARACTER_MAXIMUM_LENGTH,0),COLUMN_TYPE,IFNULL(NUMERIC_PRECISION,0),IFNULL(NUMERIC_SCALE,0),COLUMN_COMMENT,column_key,extra,ORDINAL_POSITION  from information_schema.COLUMNS where  table_schema = ? and  table_name = ?`, dbname, tablename)
 			if err != nil {
 				fmt.Println(err)
