@@ -192,7 +192,7 @@ const version = `
 /  __\/  __// ___\/__ __\/   _\/__ __\/ \   
 |  \/||  \  |    \  / \  |  /    / \  | |   
 |    /|  /_ \___ |  | |  |  \_   | |  | |_/\
-\_/\_\\____\\____/  \_/  \____/  \_/  \____/ restctl@0.0.5,
+\_/\_\\____\\____/  \_/  \____/  \_/  \____/ restctl@0.0.6,
 email=271151388@qq.com,author=winlion,all rights reserved!
 `
 
@@ -328,6 +328,7 @@ func main() {
 			}
 			tables = append(tables, tablename)
 		}
+	}
 		tmpls, err := template.ParseGlob(config.Tpldir + "/*")
 		if err != nil {
 			fmt.Println(err)
@@ -395,7 +396,6 @@ func main() {
 			}
 			fmt.Println("generate code "+ tablename +"->" +model + " √")
 		}
-	}
 
 
 }
