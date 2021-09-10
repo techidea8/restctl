@@ -9,7 +9,7 @@ import (
 	"github.com/techidea8/restgo"
 	"github.com/techidea8/restgo/middleware"
 )
-
+//{{.Comment}}控制器
 type {{.Model}}Ctrl struct {
 	restgo.Ctrl
 }
@@ -24,7 +24,7 @@ func (ctrl *{{.Model}}Ctrl) Router() {
 
 }
 
-//搜索
+//搜索{{.Comment}}
 func (ctrl *{{.Model}}Ctrl) Search(w http.ResponseWriter, req *http.Request) {
 	arg := args.{{.Model}}{}
 	restgo.Bind(req, &arg)
@@ -36,7 +36,7 @@ func (ctrl *{{.Model}}Ctrl) Search(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-//创建
+//创建{{.Comment}}
 func (ctrl *{{.Model}}Ctrl) Create(w http.ResponseWriter, req *http.Request) {
 	property := model.{{.Model}}{}
 	restgo.Bind(req, &property)
@@ -47,7 +47,7 @@ func (ctrl *{{.Model}}Ctrl) Create(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-//更新
+//更新{{.Comment}}
 func (ctrl *{{.Model}}Ctrl) Update(w http.ResponseWriter, req *http.Request) {
 	property := model.{{.Model}}{}
 	restgo.Bind(req, &property)
@@ -59,7 +59,7 @@ func (ctrl *{{.Model}}Ctrl) Update(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-//删除一条记录
+//删除{{.Comment}}
 func (ctrl *{{.Model}}Ctrl) Delete(w http.ResponseWriter, req *http.Request) {
 	property := model.{{.Model}}{}
 	restgo.Bind(req, &property)
@@ -70,7 +70,7 @@ func (ctrl *{{.Model}}Ctrl) Delete(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-//获取一条记录
+//获取{{.Comment}}
 func (ctrl *{{.Model}}Ctrl) GetOne(w http.ResponseWriter, req *http.Request) {
 	var property model.{{.Model}}
 	restgo.Bind(req, &property)

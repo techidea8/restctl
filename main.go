@@ -8,31 +8,34 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/spf13/viper"
-
 )
 
 type Column struct {
 	ColumnName      string        `json:"colname"`
-	ColumnJsonName      string        `json:"coljsonname"`
+	ColumnJsonName  string        `json:"coljsonname"`
 	DataType        string        `json:"datatype"`
-	CharMaxLen          int         `json:"maxlen"`
+	CharMaxLen      int           `json:"maxlen"`
 	ColumnType      string        `json:"coltype"`
 	Nump            int           `json:"nump"`
 	Nums            int           `json:"nums"`
 	Comment         string        `json:"comment"`
+	DataTypeJava    string        `json:"datatypejava"`
+	DataTypeGo      string        `json:"datatypego"`
 	ColumnKey       string        `json:"columnkey"`
 	Extra           string        `json:"extra"`
 	OrdinalPosition string        `json:"position"`
-	ModelTag          template.HTML `json:"modeltag"`
+	ModelTag        template.HTML `json:"modeltag"`
 	ArgTag          template.HTML `json:"argtag"`
 }
 
@@ -49,12 +52,15 @@ func (col *Column) Build() string {
 }
 
 type DstData struct {
-	Package string   `json:"package'`
-	Model   string   `json:"model'`
-	ModelL  string   `json:"modell"`
-	ModelApi  template.JS   `json:"modelapi"`
+	Package    string      `json:"package'`
+	Model      string      `json:"model'`
+	TableName  string      `json:"tablename"`
+	ModelL     string      `json:"modell"`
+	ModelApi   template.JS `json:"modelapi"`
 	DefaultObj template.JS `json:"defaultobj"`
-	Columns []Column `json:"columns"`
+	Columns    []Column    `json:"columns"`
+	Comment    string      `json:"comment"`
+	Now        string      `json:"now"`
 }
 
 func ucfirst(str string) string {
@@ -80,93 +86,127 @@ func transfer(in string) string {
 	return strings.Join(dstdata, "")
 }
 
-var datatypemap map[string]string = map[string]string{
+var datatypemapgo map[string]string = map[string]string{
 	"int":      "int",
 	"bigint":   "uint",
 	"datetime": "restgo.DateTime",
 	"date":     "restgo.Date",
 	"varchar":  "string",
-	"bit":      "int",
+	"bit":      "bool",
 	"decimal":  "float64",
 	"numeric":  "float64",
-	"float":  "float64",
-	"text":"string",
-	"tinyint":"int",
+	"float":    "float64",
+	"text":     "string",
+	"tinyint":  "int",
+}
+
+var datatypemapjava map[string]string = map[string]string{
+	"int":      "Integer",
+	"bigint":   "Long",
+	"datetime": "Timestamp",
+	"date":     "Timestamp",
+	"varchar":  "String",
+	"bit":      "Boolean",
+	"decimal":  "BigDecimal",
+	"numeric":  "BigDecimal",
+	"float":    "BigDecimal",
+	"text":     "String",
+	"tinyint":  "Integer",
 }
 
 //Col int
-func datatype(col Column) string {
-	t := col.DataType
-	r, ok := datatypemap[t]
-	if ok {
-		return r
+func datatype(col Column, lang string) string {
+	//tinyint(1) 特殊处理
+	if lang == "go" {
+		if col.ColumnType == "tinyint(1)" {
+			return "bool"
+		}
+		t := col.DataType
+		r, ok := datatypemapgo[t]
+		if ok {
+			return r
+		} else {
+			return t
+		}
+	} else if lang == "java" {
+		if col.ColumnType == "tinyint(1)" {
+			return "Boolean"
+		}
+		t := col.DataType
+		r, ok := datatypemapjava[t]
+		if ok {
+			return r
+		} else {
+			return t
+		}
 	} else {
-		return t
+		return col.DataType
 	}
+
 }
-var baseModel []string=[]string{
-	"create_at","delete_at","update_at","deleted",
+
+var baseModel []string = []string{
+	"create_at", "update_by", "create_by", "delete_at", "update_at", "deleted",
 }
-func contains(arr []string,str string) bool{
+
+func contains(arr []string, str string) bool {
 	ret := false
-	for _,v:=range arr{
-		if v==str{
+	for _, v := range arr {
+		if v == str {
 			ret = true
 		}
 	}
 	return ret
 }
+
 //构造tag
-func buildtag(col Column,useGorm bool) template.HTML {
+func buildtag(col Column, useGorm bool, lang string) template.HTML {
 	uname := transfer(col.ColumnName)
 	lname := lcfirst(uname)
 	if col.ColumnName == "id" {
 		return `restgo.BaseModel`
 	}
 	//如果是一些关键数值那么直接处理
-    if contains(baseModel,col.ColumnName){
-    	return ""
+	if contains(baseModel, col.ColumnName) {
+		return ""
 	}
-	ret := uname + " " + datatype(col) + " " + " `" + "json:\"" + lname + "\" form:\"" + lname + "\""
+	ret := uname + " " + datatype(col, lang) + " " + " `" + "json:\"" + lname + "\" form:\"" + lname + "\""
 	if col.DataType == "date" || col.DataType == "datetime" {
 		ret = ret + ` time_format:"2006-01-02 15:04:05" time_utc:"1"`
 	}
-	if useGorm{
+	if useGorm {
 
-		ret = ret + ` gorm:"comment:`+col.Comment
+		ret = ret + ` gorm:"comment:` + col.Comment
 		if col.DataType == "varchar" {
-			if(col.CharMaxLen==0){
+			if col.CharMaxLen == 0 {
 				col.CharMaxLen = 250
 			}
-			ret = ret + `;type:varchar(`+ strconv.Itoa(col.CharMaxLen)+`)`
+			ret = ret + `;type:varchar(` + strconv.Itoa(col.CharMaxLen) + `)`
 		}
 		ret = ret + "\"` "
-	}else{
+	} else {
 		ret = ret + "`"
 	}
-
 
 	return template.HTML(ret)
 }
 
 //配置文件
 type Config struct {
-
-	Table    string `mapstructure:"table" json:"table"`
+	Table   string `mapstructure:"table" json:"table"`
 	Dns     string `mapstructure:"dns" json:"dns"`
-	Model    string `mapstructure:"model" json:"model"`
-	Package  string `mapstructure:"package" json:"package"`
-	Dstdir   string `mapstructure:"dstdir" json:"dstdir"`
-	Lang     string `mapstructure:"lang" json:"lang"`
+	Model   string `mapstructure:"model" json:"model"`
+	Package string `mapstructure:"package" json:"package"`
+	Dstdir  string `mapstructure:"dstdir" json:"dstdir"`
+	Lang    string `mapstructure:"lang" json:"lang"`
 	Tpldir  string `mapstructure:"tpldir" json:"tpldir"`
-	ServerDir string `mapstructure:"serverdir" json:"serverdir"`
-	FrontDir string `mapstructure:"frontdir" json:"frontdir"`
 }
 
 var table = flag.String("t", "test", "table name")
 var modelin = flag.String("m", "", "out model")
 
-const  dnsStr =  "root:root@(127.0.0.1:3306)/test"
+const dnsStr = "root:root@(127.0.0.1:3306)/test"
+
 var dns = flag.String("dns", dnsStr, "dns link to mysql")
 
 //#
@@ -174,25 +214,25 @@ var pkg = flag.String("pkg", "turinapp", "application package")
 var cfgpath = flag.String("c", "./restgo.yaml", "config file path")
 
 //代码模板路径
-var tpldir = flag.String("tpldir", "./tmpl-go", "templete for code ")
+var tpldir = flag.String("tpldir", "", "templete for code ")
 
 var showversion = flag.Bool("v", false, "show restctl version")
 
 //根据数据库生成全部代码
 var reverse = flag.Bool("reverse", false, "generate code from all table in curent database")
-var trimprefix = flag.String("trimprefix", "", "trim the prefix of tablename used for model")
+var trimprefix = flag.String("trimprefix", "", "trim the prefix of tablename used for model, use `,` to trim more than one")
+
+var lang = flag.String("lang", "go", "language eg:go/java")
 
 var model = ""
 var config *Config = new(Config)
-
-
 
 const version = `
  ____  _____ ____  _____  ____  _____  _    
 /  __\/  __// ___\/__ __\/   _\/__ __\/ \   
 |  \/||  \  |    \  / \  |  /    / \  | |   
 |    /|  /_ \___ |  | |  |  \_   | |  | |_/\
-\_/\_\\____\\____/  \_/  \____/  \_/  \____/ restctl@0.0.7,
+\_/\_\\____\\____/  \_/  \____/  \_/  \____/ restctl@0.0.8,
 
 email=271151388@qq.com,author=winlion,all rights reserved!
 
@@ -219,17 +259,17 @@ func main() {
 	fmt.Println(version)
 	//如果需要展示版本号
 	if exist, err := PathExists(*cfgpath); err != nil || !exist {
-		if err!=nil{
+		if err != nil {
 			fmt.Println(err.Error())
-		}else{
-			if !exist{
+		} else {
+			if !exist {
 				f, _ := os.OpenFile(*cfgpath, os.O_WRONLY|os.O_CREATE, 0666) //打开文件
 				f.Close()
 			}
 		}
-		                                                  //写入文件(字符串)
+		//写入文件(字符串)
 	}
-	//如果需要reversion数据库
+	//如果需要reverse数据库
 
 	v := viper.New()
 
@@ -247,18 +287,12 @@ func main() {
 		v.SetDefault("table", "test")
 	}
 
-
-
-	//设置模板
-	if *tpldir!="./tmpl-go"{
-		v.SetDefault("tpldir", *tpldir)
-		config.Tpldir = *tpldir
+	if config.Lang != *lang {
+		v.SetDefault("table", *lang)
 	}
 
-
-
 	//设置模板
-	if *tpldir!="./tmpl-go"{
+	if *tpldir != "" {
 		v.SetDefault("tpldir", *tpldir)
 		config.Tpldir = *tpldir
 	}
@@ -272,7 +306,6 @@ func main() {
 		v.SetDefault("model", *modelin)
 	}
 
-
 	if *dns != dnsStr {
 		v.SetDefault("dns", *dns)
 		config.Dns = *dns
@@ -282,8 +315,6 @@ func main() {
 		v.SetDefault("package", *pkg)
 		config.Package = *pkg
 	}
-
-
 
 	v.WriteConfig()
 	if *showversion {
@@ -306,17 +337,16 @@ func main() {
 	}
 	defer MtsqlDb.Close()
 
-
 	//解析得到数据库名称
 	dbname := "test"
-	arr := strings.Split(config.Dns,"/")
-	arr2 := strings.Split(arr[1],"?")
-	dbname =  arr2[0]
-    tables := make([]string,0)
-    if !*reverse{
-		tables = append(tables,config.Table)
-	}else {
-		rows, err := MtsqlDb.Query(`select table_name from information_schema.tables where table_schema=?`, dbname);
+	arr := strings.Split(config.Dns, "/")
+	arr2 := strings.Split(arr[1], "?")
+	dbname = arr2[0]
+	tables := make([]string, 0)
+	if !*reverse {
+		tables = append(tables, config.Table)
+	} else {
+		rows, err := MtsqlDb.Query(`select table_name from information_schema.tables where table_schema=?`, dbname)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -331,86 +361,116 @@ func main() {
 			tables = append(tables, tablename)
 		}
 	}
-		tmpls, err := template.ParseGlob(config.Tpldir + "/*")
+	tmpls, err := template.ParseGlob(config.Tpldir + "/*")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	//fmt.Println("tables->"+strings.Join(tables,","))
+	for _, tablename := range tables {
+		columns := make([]Column, 0)
+		//是否从数据库生成
+		if *reverse {
+			trimprefixs := strings.Split(*trimprefix, ",")
+			model = tablename
+			for i, _ := range trimprefixs {
+				model = strings.TrimPrefix(model, trimprefixs[i])
+			}
+
+		} else {
+			//不是
+			if *modelin == "" {
+				model = tablename
+			} else {
+				model = *modelin
+			}
+
+		}
+
+		rows, err := MtsqlDb.Query(`select COLUMN_NAME ,DATA_TYPE,IFNULL(CHARACTER_MAXIMUM_LENGTH,0),COLUMN_TYPE,IFNULL(NUMERIC_PRECISION,0),IFNULL(NUMERIC_SCALE,0),COLUMN_COMMENT,column_key,extra,ORDINAL_POSITION  from information_schema.COLUMNS where  table_schema = ? and  table_name = ?`, dbname, tablename)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		//fmt.Println("tables->"+strings.Join(tables,","))
-		for _, tablename := range tables {
-			columns := make([]Column, 0)
-			//是否从数据库生成
-			if *reverse{
-				model = strings.TrimPrefix(tablename, *trimprefix)
-			}else{
-				//不是
-				if(*modelin==""){
-					model = tablename
-				}else{
-					model = *modelin
-				}
+		//
+		for rows.Next() {
 
-			}
-
-
-			rows, err := MtsqlDb.Query(`select COLUMN_NAME ,DATA_TYPE,IFNULL(CHARACTER_MAXIMUM_LENGTH,0),COLUMN_TYPE,IFNULL(NUMERIC_PRECISION,0),IFNULL(NUMERIC_SCALE,0),COLUMN_COMMENT,column_key,extra,ORDINAL_POSITION  from information_schema.COLUMNS where  table_schema = ? and  table_name = ?`, dbname, tablename)
+			col := Column{}
+			err := rows.Scan(&col.ColumnName, &col.DataType, &col.CharMaxLen, &col.ColumnType, &col.Nump, &col.Nums, &col.Comment, &col.ColumnKey, &col.Extra, &col.OrdinalPosition)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println(err.Error())
 				return
 			}
-			//
-			for rows.Next() {
+			//转换成abC的形式
+			col.ColumnJsonName = lcfirst(transfer(col.ColumnName))
+			col.ModelTag = buildtag(col, true, config.Lang)
+			col.ArgTag = buildtag(col, false, config.Lang)
+			col.DataTypeGo = datatype(col, "go")
+			col.DataTypeJava = datatype(col, "java")
+			columns = append(columns, col)
+		}
+		//输出表注释
 
-				col := Column{}
-				err := rows.Scan(&col.ColumnName, &col.DataType, &col.CharMaxLen, &col.ColumnType, &col.Nump, &col.Nums, &col.Comment, &col.ColumnKey, &col.Extra, &col.OrdinalPosition)
-				if err != nil {
-					fmt.Println(err.Error())
-					return
-				}
-				//转换成abC的形式
-				col.ColumnJsonName = lcfirst(transfer(col.ColumnName))
-				col.ModelTag = buildtag(col, true)
-				col.ArgTag = buildtag(col, false)
-				columns = append(columns, col)
-			}
+		//输出模板
+		dstdata := new(DstData)
+		dstdata.Package = config.Package
+		dstdata.Model = ucfirst(transfer(model))
+		dstdata.ModelL = lcfirst(transfer(model))
+		dstdata.Columns = columns
+		dstdata.ModelApi = template.JS(lcfirst(transfer(model)) + "Api")
+		dstdata.TableName = tablename
+		dstdata.Now = time.Now().Format("2006-01-02 15:04:05")
+		//
+		comments, err := MtsqlDb.Query(`select table_comment from information_schema.tables where table_schema=? and table_name = ?`, dbname, tablename)
 
-
-			//输出模板
-			dstdata := new(DstData)
-			dstdata.Package =  config.Package
-			dstdata.Model =ucfirst(transfer(model))
-			dstdata.ModelL = lcfirst(transfer(model))
-			dstdata.Columns = columns
-			dstdata.ModelApi = template.JS(lcfirst(transfer(model)) + "Api")
-
-			for _, tpl := range tmpls.Templates() {
-				tplName := tpl.Name()
-				//过滤掉以html结尾的
-				if (strings.HasSuffix(tplName, ".html")) {
-					continue
-				}
-				//将
-				dstFile := strings.ReplaceAll(tplName, "[model]", model)
-				dstFile = strings.TrimSuffix(dstFile, ".tpl")
-				os.MkdirAll(filepath.Dir(dstFile), fs.FileMode(os.O_CREATE))
-
-				f, err := os.OpenFile(dstFile, os.O_WRONLY|os.O_CREATE, 0766)
-
-				if err != nil {
-					log.Fatalln(err.Error())
-					return
-				}
-				//文件需要再次清空
-				err = f.Truncate(0);
-				if err != nil {
-					log.Fatalln(err.Error())
-					return
-				}
-				tpl.ExecuteTemplate(f, tplName, *dstdata)
-				f.Close()
-			}
-			fmt.Println("generate code "+ tablename +"->" +model + " √")
+		if err != nil {
+			fmt.Println(err)
+			return
 		}
 
+		for comments.Next() {
+			tmp := ""
+			comments.Scan(&tmp)
+			dstdata.Comment = tmp
+		}
+
+		for _, tpl := range tmpls.Templates() {
+			tplName := tpl.Name()
+			//过滤掉以html结尾的
+			if strings.HasSuffix(tplName, ".html") {
+				continue
+			}
+			//将
+			dstFile := strings.ReplaceAll(tplName, "[model]", dstdata.ModelL)
+			dstFile = strings.ReplaceAll(dstFile, "[Model]", dstdata.Model)
+			pkgpath := strings.ReplaceAll(dstdata.Package, ".", "/")
+			dstFile = strings.ReplaceAll(dstFile, "[pkgpath]", pkgpath)
+
+			dstFile = strings.TrimSuffix(dstFile, ".tpl")
+			os.MkdirAll(filepath.Dir(dstFile), fs.FileMode(os.O_CREATE))
+
+			f, err := os.OpenFile(dstFile, os.O_WRONLY|os.O_CREATE, 0766)
+
+			if err != nil {
+				log.Fatalln(err.Error())
+				return
+			}
+			//文件需要再次清空
+			err = f.Truncate(0)
+			if err != nil {
+				log.Fatalln(err.Error())
+				return
+			}
+
+			tpl.ExecuteTemplate(f, tplName, *dstdata)
+
+			f.Close()
+			buf, _ := ioutil.ReadFile(dstFile)
+			content := string(buf)
+			content = strings.ReplaceAll(content, "&lt;", "<")
+			ioutil.WriteFile(dstFile, []byte(content), 0766)
+		}
+		fmt.Println("generate code " + tablename + "->" + model + " √")
+	}
 
 }
