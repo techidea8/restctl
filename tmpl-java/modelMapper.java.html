@@ -1,0 +1,20 @@
+{{define "server/src/main/java/[pkgpath]/service/mapstruct/[Model]Mapper.java.tpl"}}
+package {{.Package}}.service.mapstruct;
+
+import com.turingdance.base.BaseMapper;
+import {{.Package}}.domain.{{.Model}};
+import {{.Package}}.service.dto.{{.Model}}Dto;
+import org.mapstruct.Mapper;
+import org.mapstruct.ReportingPolicy;
+
+/**
+ * {{.Comment}}
+ *
+ * @author winlion
+ * @date {{.Now}}
+ */
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+public interface {{.Model}}Mapper extends BaseMapper < {{.Model}}Dto, {{.Model}}> {
+
+}
+{{end}}

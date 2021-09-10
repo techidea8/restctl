@@ -1,0 +1,28 @@
+{{define "server/src/main/java/[pkgpath]/repository/[Model]Repository.java.tpl"}}
+package {{.Package}}.repository;
+
+import com.turingdance.base.BaseEntity;
+import {{.Package}}.domain.{{.Model}};
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+
+import java.util.List;
+import java.util.Set;
+
+/**
+ * {{.Comment}}
+ *
+ * @author winlion
+ * @date {{.Now}}
+ */
+ 
+public interface {{.Model}}Repository extends JpaRepository < {{.Model}}, Long>, JpaSpecificationExecutor < {{.Model}}> {
+
+    @Modifying
+    @Query("update {{.Model}} t set t.deleted = false where id = ?1")
+    int updateAsDeleted(Long id);
+}
+
+{{end}}

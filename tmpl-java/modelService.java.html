@@ -1,0 +1,73 @@
+{{define "server/src/main/java/[pkgpath]/service/[Model]Service.java.tpl"}}
+package {{.Package}}.service;
+
+import {{.Package}}.domain.{{.Model}};
+import {{.Package}}.service.dto.{{.Model}}Dto;
+import {{.Package}}.service.dto.{{.Model}}QueryCriteria;
+import com.turingdance.utils.Result;
+import org.springframework.data.domain.Pageable;
+
+import java.util.List;
+
+/**
+ * {{.Comment}}
+ *
+ * @author winlion
+ * @date {{.Now}}
+ */
+ 
+public interface {{.Model}}Service {
+
+    /**
+     * 删除
+     * @param instance
+     * @return
+     */
+    public {{.Model}}Dto create({{.Model}} instance);
+
+    /**
+     * 删除
+     * @param instance
+     * @return
+     */
+    public int logicdelete({{.Model}} instance);
+
+    /**
+     * 物理删除
+     * @param instance
+     * @return
+     */
+    public void delete({{.Model}} instance);
+    /**
+     * 修改
+     * @param instance
+     * @return
+     */
+    public {{.Model}}Dto update({{.Model}} instance);
+
+    /**
+     * 查询橘色
+     * @param id
+     * @return
+     */
+    public {{.Model}}Dto findById(Long id);
+
+    /**
+     * 查询全部
+     * @param criteria
+     * @return
+     */
+    public List<{{.Model}}Dto> findAll({{.Model}}QueryCriteria criteria);
+    /**
+     * 分页搜索
+     * @param criteria
+     * @param pageable
+     * @return
+     */
+    public Result search({{.Model}}QueryCriteria criteria, Pageable pageable);
+
+
+}
+
+
+{{end}}

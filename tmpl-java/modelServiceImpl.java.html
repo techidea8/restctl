@@ -1,0 +1,80 @@
+{{define "server/src/main/java/[pkgpath]/service/impl/[Model]ServiceImpl.java.tpl"}}
+package {{.Package}}.service.impl;
+import {{.Package}}.domain.{{.Model}};
+import {{.Package}}.service.dto.{{.Model}}Dto;
+import {{.Package}}.service.dto.{{.Model}}QueryCriteria;
+import {{.Package}}.service.{{.Model}}Service;
+import {{.Package}}.service.mapstruct.{{.Model}}Mapper;
+import {{.Package}}.repository.{{.Model}}Repository;
+import com.turingdance.utils.Result;
+import org.springframework.data.domain.Pageable;
+import com.turingdance.utils.QueryHelp;
+import com.turingdance.utils.ValidationUtil;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+
+
+/**
+ * {{.Comment}}
+ *
+ * @author winlion
+ * @date {{.Now}}
+ */
+ 
+@Service
+@RequiredArgsConstructor
+public class {{.Model}}ServiceImpl implements {{.Model}}Service {
+    private final  {{.Model}}Repository {{.ModelL}}Repository;
+    private final {{.Model}}Mapper {{.ModelL}}Mapper;
+    @Override
+    public {{.Model}}Dto create({{.Model}} instance) {
+        instance.setDeleted(false);
+        return {{.ModelL}}Mapper.toDto({{.ModelL}}Repository.saveAndFlush(instance));
+    }
+
+    @Transactional
+    @Override
+    public int logicdelete({{.Model}} instance) {
+        return {{.ModelL}}Repository.updateAsDeleted(instance.getId());
+    }
+
+
+    @Transactional
+    @Override
+    public void delete({{.Model}} instance) {
+        {{.ModelL}}Repository.deleteById(instance.getId());
+        return ;
+    }
+
+    @Transactional
+    @Override
+    public {{.Model}}Dto update({{.Model}} instance) {
+        {{.Model}} {{.ModelL}} = {{.ModelL}}Repository.findById(instance.getId()).orElseGet({{.Model}}::new);
+        ValidationUtil.isNull( {{.ModelL}}.getId(),"{{.Model}}","id",instance.getId());
+        {{.ModelL}}.copy(instance);
+        return {{.ModelL}}Mapper.toDto({{.ModelL}}Repository.save({{.ModelL}}));
+    }
+
+
+    @Override
+    public {{.Model}}Dto findById(Long id) {
+        return {{.ModelL}}Mapper.toDto({{.ModelL}}Repository.findById(id).orElseGet({{.Model}}::new));
+    }
+
+    @Override
+    public List<{{.Model}}Dto> findAll({{.Model}}QueryCriteria criteria) {
+        return {{.ModelL}}Mapper.toDto({{.ModelL}}Repository.findAll((root, criteriaQuery, criteriaBuilder) -> QueryHelp.getPredicate(root, criteria, criteriaBuilder)));
+    }
+
+    @Override
+    public Result search({{.Model}}QueryCriteria criteria, Pageable pageable) {
+        Page<{{.Model}}> pageInfo = {{.ModelL}}Repository.findAll((root, criteriaQuery, criteriaBuilder) -> QueryHelp.getPredicate(root, criteria, criteriaBuilder), pageable);
+        return Result.Rows({{.ModelL}}Mapper.toDto(pageInfo.getContent()),pageInfo.getTotalElements());
+    }
+}
+
+{{end}}

@@ -1,0 +1,59 @@
+{{define "server/src/main/java/[pkgpath]/domain/[Model].java.tpl"}}
+package {{.Package}}.domain;
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.bean.copier.CopyOptions;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import io.swagger.annotations.ApiModelProperty;
+import lombok.Getter;
+import lombok.Setter;
+import com.turingdance.base.BaseEntity;
+import com.turingdance.utils.enums.DataScopeEnum;
+
+import javax.persistence.*;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
+import java.io.Serializable;
+import java.util.Objects;
+import java.util.Set;
+
+/**
+ * {{.Comment}}实体类
+ *
+ * @author winlion
+ * @date {{.Now}}
+ */
+@Getter
+@Setter
+@Entity
+@Table(name = "{{.TableName}}")
+public class {{.Model}} extends BaseEntity implements Serializable {
+
+    {{range $i,$v := .Columns}}
+        {{if ne $v.ColumnJsonName "createAt"}}
+        {{if ne $v.ColumnJsonName "updateAt"}}
+        {{if ne $v.ColumnJsonName "createBy"}}
+        {{if ne $v.ColumnJsonName "updateBy"}}
+        {{if ne $v.ColumnJsonName "deleteBy"}}
+        {{if ne $v.ColumnJsonName "deleteAt"}}
+        {{if ne $v.ColumnJsonName "deleted"}}
+        {{if ne $v.ColumnJsonName "id"}}
+       @ApiModelProperty(value = "{{.Comment}}")
+      
+       @Column(columnDefinition="{{.ColumnType}} COMMENT '{{.Comment}}'")
+       private {{$v.DataTypeJava}} {{ $v.ColumnJsonName }};
+       {{end}}
+       {{end}}
+       {{end}}
+       {{end}}
+       {{end}}
+       {{end}}
+       {{end}}
+       {{end}}
+    {{end}}
+
+    public void copy({{.Model}} source){
+        BeanUtil.copyProperties(source,this, CopyOptions.create().setIgnoreNullValue(true));
+    }
+}
+
+{{end}}

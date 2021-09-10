@@ -1,0 +1,31 @@
+{{define "server/src/main/java/[pkgpath]/service/dto/[Model]QueryCriteria.java.tpl"}}
+package {{.Package}}.service.dto;
+
+
+import lombok.Getter;
+import lombok.Setter;
+import com.turingdance.base.BaseDTO;
+
+import java.io.Serializable;
+import java.util.List;
+import java.sql.Timestamp;
+import com.turingdance.annotation.Query;
+/**
+ * {{.Comment}}
+ *
+ * @author winlion
+ * @date {{.Now}}
+ */
+@Getter
+@Setter
+public class {{.Model}}QueryCriteria{
+
+	{{range $i,$v := .Columns}}
+       @Query 
+       private {{$v.DataTypeJava}} {{ $v.ColumnJsonName }};
+    {{end}}
+	
+}
+
+
+{{end}}
