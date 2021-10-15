@@ -15,6 +15,8 @@ import javax.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.Set;
+import java.math.BigDecimal;
+import java.sql.Timestamp;
 
 /**
  * {{.Comment}}实体类
@@ -38,7 +40,6 @@ public class {{.Model}} extends BaseEntity implements Serializable {
         {{if ne $v.ColumnJsonName "deleted"}}
         {{if ne $v.ColumnJsonName "id"}}
        @ApiModelProperty(value = "{{.Comment}}")
-      
        @Column(columnDefinition="{{.ColumnType}} COMMENT '{{.Comment}}'")
        private {{$v.DataTypeJava}} {{ $v.ColumnJsonName }};
        {{end}}

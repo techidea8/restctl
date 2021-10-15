@@ -87,31 +87,44 @@ func transfer(in string) string {
 }
 
 var datatypemapgo map[string]string = map[string]string{
-	"int":      "int",
-	"bigint":   "uint",
-	"datetime": "restgo.DateTime",
-	"date":     "restgo.Date",
-	"varchar":  "string",
-	"bit":      "bool",
-	"decimal":  "float64",
-	"numeric":  "float64",
-	"float":    "float64",
-	"text":     "string",
-	"tinyint":  "int",
+	"tinyint":   "int",
+	"smallint":  "int",
+	"mediumint": "int",
+	"int":       "int",
+	"integer":   "int",
+	"bigint":    "uint",
+	"float":     "float64",
+	"double":    "float64",
+
+	"decimal":   "float64",
+	"datetime":  "restgo.DateTime",
+	"date":      "restgo.Date",
+	"timestamp": "uint",
+	"char":      "string",
+	"varchar":   "string",
+	"bit":       "bool",
+	"numeric":   "float64",
+	"text":      "string",
 }
 
 var datatypemapjava map[string]string = map[string]string{
-	"int":      "Integer",
-	"bigint":   "Long",
-	"datetime": "Timestamp",
-	"date":     "Timestamp",
-	"varchar":  "String",
-	"bit":      "Boolean",
-	"decimal":  "BigDecimal",
-	"numeric":  "BigDecimal",
-	"float":    "BigDecimal",
-	"text":     "String",
-	"tinyint":  "Integer",
+	"tinyint":   "Integer",
+	"int":       "Integer",
+	"smallint":  "Integer",
+	"mediumint": "Integer",
+	"integer":   "Integer",
+	"bigint":    "Long",
+	"float":     "BigDecimal",
+	"double":    "BigDecimal",
+	"datetime":  "Timestamp",
+	"date":      "Timestamp",
+	"timestamp": "Timestamp",
+	"varchar":   "String",
+	"char":      "String",
+	"bit":       "Boolean",
+	"decimal":   "BigDecimal",
+	"numeric":   "BigDecimal",
+	"text":      "String",
 }
 
 //Col int
@@ -220,6 +233,7 @@ var showversion = flag.Bool("v", false, "show restctl version")
 
 //根据数据库生成全部代码
 var reverse = flag.Bool("reverse", false, "generate code from all table in curent database")
+var exclude = flag.String("exclude", "", "available when use reverse, generate code from all table in curent database exclude those ,use `,` to exclude more than one ,it ")
 var trimprefix = flag.String("trimprefix", "", "trim the prefix of tablename used for model, use `,` to trim more than one")
 
 var lang = flag.String("lang", "go", "language eg:go/java")
@@ -232,7 +246,7 @@ const version = `
 /  __\/  __// ___\/__ __\/   _\/__ __\/ \   
 |  \/||  \  |    \  / \  |  /    / \  | |   
 |    /|  /_ \___ |  | |  |  \_   | |  | |_/\
-\_/\_\\____\\____/  \_/  \____/  \_/  \____/ restctl@0.0.8,
+\_/\_\\____\\____/  \_/  \____/  \_/  \____/ restctl@0.0.9,
 
 email=271151388@qq.com,author=winlion,all rights reserved!
 
@@ -358,7 +372,11 @@ func main() {
 				fmt.Println(err)
 				return
 			}
-			tables = append(tables, tablename)
+			//支持排除
+			if !strings.Contains(*exclude, tablename) {
+				tables = append(tables, tablename)
+			}
+
 		}
 	}
 	tmpls, err := template.ParseGlob(config.Tpldir + "/*")
