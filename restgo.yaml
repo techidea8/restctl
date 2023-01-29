@@ -4,42 +4,41 @@ model: test
 package: com.turingdance.modules.biz
 table: test
 tpldir: ./tmpl-java
-
 datatypego:
-  tinyint:   int
-	smallint:  int
+  tinyint: int
+	smallint: int
 	mediumint: int
-	int:       int
-	integer:   int
-	bigint:    uint
-	float:     float64
-	double:    float64
-	decimal:   float64
-	datetime:  restgo.DateTime
-	date:      restgo.Date
+	int: int
+	integer: int
+	bigint: uint
+	float: float64
+	double: float64
+	decimal: float64
+	datetime: restgo.DateTime
+	date: restgo.Date
 	timestamp: uint
-	char:      string
-	varchar:   string
-	bit:       bool
-	numeric:   float64
-	text:      string
-	longtext:  string
+	char: string
+	varchar: string
+	bit: bool
+	numeric: float64
+	text: string
+	longtext: string
 datatypejava:
-  tinyint:   Integer
-	int:       Integer
-	smallint:  Integer
+  tinyint: Integer
+	int: Integer
+	smallint: Integer
 	mediumint: Integer
-	integer:   Integer
-	bigint:    Long
-	float:     BigDecimal
-	double:    BigDecimal
-	datetime:  Timestamp
-	date:      Timestamp
+	integer: Integer
+	bigint: Long
+	float: BigDecimal
+	double: BigDecimal
+	datetime: Timestamp
+	date: Timestamp
 	timestamp: Timestamp
-	varchar:   String
-	char:      String
-	bit:       Boolean
-	decimal:   BigDecimal
-	numeric:   BigDecimal
-	text:      String
-	longtext:  String
+	varchar: String
+	char: String
+	bit: Boolean
+	decimal: BigDecimal
+	numeric: BigDecimal
+	text: String
+	longtext: String
