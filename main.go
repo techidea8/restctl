@@ -59,6 +59,7 @@ type DstData struct {
 	ModelApi   template.JS `json:"modelapi"`
 	DefaultObj template.JS `json:"defaultobj"`
 	Columns    []Column    `json:"columns"`
+	ColPk      Column      `json:"colpk"`
 	Comment    string      `json:"comment"`
 	Now        string      `json:"now"`
 }
@@ -76,7 +77,7 @@ func lcfirst(str string) string {
 	return ""
 }
 
-//abc_def_ghi=> AbcDefGhi
+// abc_def_ghi=> AbcDefGhi
 func transfer(in string) string {
 	dstdata := make([]string, 0)
 	inarr := strings.Split(in, "_")
@@ -95,7 +96,6 @@ var datatypemapgo map[string]string = map[string]string{
 	"bigint":    "uint",
 	"float":     "float64",
 	"double":    "float64",
-
 	"decimal":   "float64",
 	"datetime":  "restgo.DateTime",
 	"date":      "restgo.Date",
@@ -105,6 +105,7 @@ var datatypemapgo map[string]string = map[string]string{
 	"bit":       "bool",
 	"numeric":   "float64",
 	"text":      "string",
+	"longtext":  "string",
 }
 
 var datatypemapjava map[string]string = map[string]string{
@@ -125,9 +126,10 @@ var datatypemapjava map[string]string = map[string]string{
 	"decimal":   "BigDecimal",
 	"numeric":   "BigDecimal",
 	"text":      "String",
+	"longtext":  "String",
 }
 
-//Col int
+// Col int
 func datatype(col Column, lang string) string {
 	//tinyint(1) 特殊处理
 	if lang == "go" {
@@ -136,9 +138,11 @@ func datatype(col Column, lang string) string {
 		}
 		t := col.DataType
 		r, ok := datatypemapgo[t]
+		//fmt.Println(col.ColumnName + " " + t + "=>" + r)
 		if ok {
 			return r
 		} else {
+			fmt.Println("error when mapper " + col.ColumnName + " " + t + "=>" + r)
 			return t
 		}
 	} else if lang == "java" {
@@ -172,7 +176,7 @@ func contains(arr []string, str string) bool {
 	return ret
 }
 
-//构造tag
+// 构造tag
 func buildtag(col Column, useGorm bool, lang string) template.HTML {
 	uname := transfer(col.ColumnName)
 	lname := lcfirst(uname)
@@ -204,15 +208,17 @@ func buildtag(col Column, useGorm bool, lang string) template.HTML {
 	return template.HTML(ret)
 }
 
-//配置文件
+// 配置文件
 type Config struct {
-	Table   string `mapstructure:"table" json:"table"`
-	Dns     string `mapstructure:"dns" json:"dns"`
-	Model   string `mapstructure:"model" json:"model"`
-	Package string `mapstructure:"package" json:"package"`
-	Dstdir  string `mapstructure:"dstdir" json:"dstdir"`
-	Lang    string `mapstructure:"lang" json:"lang"`
-	Tpldir  string `mapstructure:"tpldir" json:"tpldir"`
+	Table        string            `mapstructure:"table" json:"table"`
+	Dns          string            `mapstructure:"dns" json:"dns"`
+	Model        string            `mapstructure:"model" json:"model"`
+	Package      string            `mapstructure:"package" json:"package"`
+	Dstdir       string            `mapstructure:"dstdir" json:"dstdir"`
+	Lang         string            `mapstructure:"lang" json:"lang"`
+	Tpldir       string            `mapstructure:"tpldir" json:"tpldir"`
+	DataTypeGo   map[string]string `yaml:"datatypego"`
+	DataTypeJava map[string]string `yaml:"datatypejava"`
 }
 
 var table = flag.String("t", "test", "table name")
@@ -222,16 +228,16 @@ const dnsStr = "root:root@(127.0.0.1:3306)/test"
 
 var dns = flag.String("dns", dnsStr, "dns link to mysql")
 
-//#
+// #
 var pkg = flag.String("pkg", "turinapp", "application package")
 var cfgpath = flag.String("c", "./restgo.yaml", "config file path")
 
-//代码模板路径
+// 代码模板路径
 var tpldir = flag.String("tpldir", "", "templete for code ")
 
 var showversion = flag.Bool("v", false, "show restctl version")
 
-//根据数据库生成全部代码
+// 根据数据库生成全部代码
 var reverse = flag.Bool("reverse", false, "generate code from all table in curent database")
 var exclude = flag.String("exclude", "", "available when use reverse, generate code from all table in curent database exclude those ,use `,` to exclude more than one ,it ")
 var trimprefix = flag.String("trimprefix", "", "trim the prefix of tablename used for model, use `,` to trim more than one")
@@ -262,6 +268,16 @@ func PathExists(path string) (bool, error) {
 	}
 	return false, err
 }
+
+func initdatatypemap(config *Config) {
+	for k, v := range config.DataTypeGo {
+		datatypemapgo[k] = v
+	}
+	for k, v := range config.DataTypeJava {
+		datatypemapjava[k] = v
+	}
+}
+
 func main() {
 	if len(os.Args) == 1 {
 		fmt.Println(version)
@@ -269,6 +285,7 @@ func main() {
 	} else {
 		flag.Parse()
 	}
+	// 初始化当前存在的
 
 	fmt.Println(version)
 	//如果需要展示版本号
@@ -293,6 +310,7 @@ func main() {
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 	v.Unmarshal(config)
+	initdatatypemap(config)
 
 	if config.Model == "" {
 		v.SetDefault("model", "test")
@@ -379,11 +397,16 @@ func main() {
 
 		}
 	}
-	tmpls, err := template.ParseGlob(config.Tpldir + "/*")
-	if err != nil {
+	tmpls := template.New("root")
+	tmpls = tmpls.Funcs(template.FuncMap{
+		"ucfirst": ucfirst,
+		"lcfirst": lcfirst,
+	})
+	if tmpls, err = tmpls.ParseGlob(config.Tpldir + "/*"); err != nil {
 		fmt.Println(err)
 		return
 	}
+
 	//fmt.Println("tables->"+strings.Join(tables,","))
 	for _, tablename := range tables {
 		columns := make([]Column, 0)
@@ -438,6 +461,11 @@ func main() {
 		dstdata.ModelApi = template.JS(lcfirst(transfer(model)) + "Api")
 		dstdata.TableName = tablename
 		dstdata.Now = time.Now().Format("2006-01-02 15:04:05")
+		for _, col := range columns {
+			if col.IsKey() {
+				dstdata.ColPk = col
+			}
+		}
 		//
 		comments, err := MtsqlDb.Query(`select table_comment from information_schema.tables where table_schema=? and table_name = ?`, dbname, tablename)
 
@@ -451,7 +479,6 @@ func main() {
 			comments.Scan(&tmp)
 			dstdata.Comment = tmp
 		}
-
 		for _, tpl := range tmpls.Templates() {
 			tplName := tpl.Name()
 			//过滤掉以html结尾的
@@ -459,7 +486,7 @@ func main() {
 				continue
 			}
 			//将
-			dstFile := strings.ReplaceAll(tplName, "[model]", dstdata.ModelL)
+			dstFile := strings.ReplaceAll(tplName, "[model]", strings.ToLower(dstdata.ModelL))
 			dstFile = strings.ReplaceAll(dstFile, "[Model]", dstdata.Model)
 			pkgpath := strings.ReplaceAll(dstdata.Package, ".", "/")
 			dstFile = strings.ReplaceAll(dstFile, "[pkgpath]", pkgpath)
