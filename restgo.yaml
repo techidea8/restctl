@@ -1,44 +1,44 @@
+datatypego:
+  bigint: uint
+  bit: bool
+  char: string
+  date: restgo.Date
+  datetime: restgo.DateTime
+  decimal: float64
+  double: float64
+  float: float64
+  int: int
+  integer: int
+  longtext: string
+  mediumint: int
+  numeric: float64
+  smallint: int
+  text: string
+  timestamp: uint
+  tinyint: int
+  varchar: string
+datatypejava:
+  bigint: Long
+  bit: Boolean
+  char: String
+  date: Timestamp
+  datetime: Timestamp
+  decimal: BigDecimal
+  double: BigDecimal
+  float: BigDecimal
+  int: Integer
+  integer: Integer
+  longtext: String
+  mediumint: Integer
+  numeric: BigDecimal
+  smallint: Integer
+  text: String
+  timestamp: Timestamp
+  tinyint: Integer
+  varchar: String
 dns: root:root@(127.0.0.1:3306)/test?charset=utf8mb4&loc=Local
 lang: java
 model: test
 package: com.turingdance.modules.biz
 table: test
 tpldir: ./tmpl-java
-datatypego:
-  tinyint: int
-	smallint: int
-	mediumint: int
-	int: int
-	integer: int
-	bigint: uint
-	float: float64
-	double: float64
-	decimal: float64
-	datetime: restgo.DateTime
-	date: restgo.Date
-	timestamp: uint
-	char: string
-	varchar: string
-	bit: bool
-	numeric: float64
-	text: string
-	longtext: string
-datatypejava:
-  tinyint: Integer
-	int: Integer
-	smallint: Integer
-	mediumint: Integer
-	integer: Integer
-	bigint: Long
-	float: BigDecimal
-	double: BigDecimal
-	datetime: Timestamp
-	date: Timestamp
-	timestamp: Timestamp
-	varchar: String
-	char: String
-	bit: Boolean
-	decimal: BigDecimal
-	numeric: BigDecimal
-	text: String
-	longtext: String

@@ -307,7 +307,8 @@ func main() {
 	v.SetConfigFile(*cfgpath)
 	err := v.ReadInConfig()
 	if err != nil {
-		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+		fmt.Println("Fatal error config file: ", err.Error())
+		return
 	}
 	v.Unmarshal(config)
 	initdatatypemap(config)
