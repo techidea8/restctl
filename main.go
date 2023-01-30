@@ -132,20 +132,7 @@ var datatypemapjava map[string]string = map[string]string{
 // Col int
 func datatype(col Column, lang string) string {
 	//tinyint(1) 特殊处理
-	if lang == "go" {
-		if col.ColumnType == "tinyint(1)" {
-			return "bool"
-		}
-		t := col.DataType
-		r, ok := datatypemapgo[t]
-		//fmt.Println(col.ColumnName + " " + t + "=>" + r)
-		if ok {
-			return r
-		} else {
-			fmt.Println("error when mapper " + col.ColumnName + " " + t + "=>" + r)
-			return t
-		}
-	} else if lang == "java" {
+	if lang == "java" {
 		if col.ColumnType == "tinyint(1)" {
 			return "Boolean"
 		}
@@ -156,13 +143,24 @@ func datatype(col Column, lang string) string {
 		} else {
 			return t
 		}
-	} else {
-		return col.DataType
-	}
+	} else  {
+		if col.ColumnType == "tinyint(1)" {
+			return "bool"
+		}
+		t := col.DataType
+		r, ok := datatypemapgo[t]
+		//fmt.Printf("%s:%s=>%s,%t\n",col.ColumnName , t ,  r,ok)
+		if ok {
+			return r
+		} else {
+			fmt.Println("error when mapper " + col.ColumnName + " " + t + "=>" + r)
+			return t
+		}
+	} 
 
 }
 
-var baseModel []string = []string{
+var colIgnore []string = []string{
 	"create_at", "update_by", "create_by", "delete_at", "update_at", "deleted",
 }
 
@@ -178,16 +176,14 @@ func contains(arr []string, str string) bool {
 
 // 构造tag
 func buildtag(col Column, useGorm bool, lang string) template.HTML {
-	uname := transfer(col.ColumnName)
-	lname := lcfirst(uname)
-	if col.ColumnName == "id" {
-		return `restgo.BaseModel`
-	}
+	fieldname := transfer(col.ColumnName)
+	lname := lcfirst(fieldname)
 	//如果是一些关键数值那么直接处理
-	if contains(baseModel, col.ColumnName) {
+	if contains(colIgnore, col.ColumnName) {
 		return ""
 	}
-	ret := uname + " " + datatype(col, lang) + " " + " `" + "json:\"" + lname + "\" form:\"" + lname + "\""
+	ret := fieldname + " " + datatype(col, lang) + " " + " `" + "json:\"" + lname + "\" form:\"" + lname + "\""
+	//fmt.Println(ret,lang,datatype(col, lang))
 	if col.DataType == "date" || col.DataType == "datetime" {
 		ret = ret + ` time_format:"2006-01-02 15:04:05" time_utc:"1"`
 	}
@@ -217,6 +213,7 @@ type Config struct {
 	Dstdir       string            `mapstructure:"dstdir" json:"dstdir"`
 	Lang         string            `mapstructure:"lang" json:"lang"`
 	Tpldir       string            `mapstructure:"tpldir" json:"tpldir"`
+	ColIgnore  string 
 	DataTypeGo   map[string]string `yaml:"datatypego"`
 	DataTypeJava map[string]string `yaml:"datatypejava"`
 }
@@ -247,16 +244,6 @@ var lang = flag.String("lang", "go", "language eg:go/java")
 var model = ""
 var config *Config = new(Config)
 
-const version = `
- ____  _____ ____  _____  ____  _____  _    
-/  __\/  __// ___\/__ __\/   _\/__ __\/ \   
-|  \/||  \  |    \  / \  |  /    / \  | |   
-|    /|  /_ \___ |  | |  |  \_   | |  | |_/\
-\_/\_\\____\\____/  \_/  \____/  \_/  \____/ restctl@0.1.0,
-
-email=271151388@qq.com,author=winlion,all rights reserved!
-
-`
 
 func PathExists(path string) (bool, error) {
 	_, err := os.Stat(path)
@@ -320,8 +307,9 @@ func main() {
 	}
 
 	if config.Lang != *lang {
-		v.SetDefault("table", *lang)
+		v.SetDefault("lang", *lang)
 	}
+	//fmt.Println("config.Lang=",config.Lang)
 
 	//设置模板
 	if *tpldir != "" {
