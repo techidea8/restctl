@@ -160,9 +160,7 @@ func datatype(col Column, lang string) string {
 
 }
 
-var colIgnore []string = []string{
-	"create_at", "update_by", "create_by", "delete_at", "update_at", "deleted",
-}
+var filedsIgnored []string = []string{}
 
 func contains(arr []string, str string) bool {
 	ret := false
@@ -179,7 +177,7 @@ func buildtag(col Column, useGorm bool, lang string) template.HTML {
 	fieldname := transfer(col.ColumnName)
 	lname := lcfirst(fieldname)
 	//如果是一些关键数值那么直接处理
-	if contains(colIgnore, col.ColumnName) {
+	if contains(filedsIgnored, col.ColumnName) {
 		return ""
 	}
 	ret := fieldname + " " + datatype(col, lang) + " " + " `" + "json:\"" + lname + "\" form:\"" + lname + "\""
@@ -213,7 +211,7 @@ type Config struct {
 	Dstdir       string            `mapstructure:"dstdir" json:"dstdir"`
 	Lang         string            `mapstructure:"lang" json:"lang"`
 	Tpldir       string            `mapstructure:"tpldir" json:"tpldir"`
-	ColIgnore  string 
+	FiledsIgnored  string 
 	DataTypeGo   map[string]string `yaml:"datatypego"`
 	DataTypeJava map[string]string `yaml:"datatypejava"`
 }
@@ -243,6 +241,16 @@ var lang = flag.String("lang", "go", "language eg:go/java")
 
 var model = ""
 var config *Config = new(Config)
+
+const  version = `
+ ____  _____ ____  _____  ____  _____  _    
+/  __\/  __// ___\/__ __\/   _\/__ __\/ \   
+|  \/||  \  |    \  / \  |  /    / \  | |   
+|    /|  /_ \___ |  | |  |  \_   | |  | |_/\
+\_/\_\\____\\____/  \_/  \____/  \_/  \____/ restctl@0.1.0,
+
+email=271151388@qq.com,author=winlion,all rights reserved!
+`
 
 
 func PathExists(path string) (bool, error) {
@@ -298,6 +306,11 @@ func main() {
 	}
 	v.Unmarshal(config)
 	initdatatypemap(config)
+
+	fields := strings.Split(config.FiledsIgnored,"")
+	for _,v := range fields{
+		filedsIgnored = append(filedsIgnored,v)
+	}
 
 	if config.Model == "" {
 		v.SetDefault("model", "test")
