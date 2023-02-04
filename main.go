@@ -132,7 +132,6 @@ var datatypemapjava map[string]string = map[string]string{
 // Col int
 func datatype(col Column, lang string) string {
 	//tinyint(1) 特殊处理
-	fmt.Println(col.ColumnJsonName, "=>", lang)
 	if lang == "go" {
 		if col.ColumnType == "tinyint(1)" {
 			return "bool"
@@ -167,6 +166,8 @@ var baseModel []string = []string{
 	"create_at", "update_by", "create_by", "delete_at", "update_at", "deleted",
 }
 
+var filedsIgnored []string = []string{}
+
 func contains(arr []string, str string) bool {
 	ret := false
 	for _, v := range arr {
@@ -179,16 +180,14 @@ func contains(arr []string, str string) bool {
 
 // 构造tag
 func buildtag(col Column, useGorm bool, lang string) template.HTML {
-	uname := transfer(col.ColumnName)
-	lname := lcfirst(uname)
-	if col.ColumnName == "id" {
-		return `restgo.BaseModel`
-	}
+	fieldname := transfer(col.ColumnName)
+	lname := lcfirst(fieldname)
 	//如果是一些关键数值那么直接处理
-	if contains(baseModel, col.ColumnName) {
+	if contains(filedsIgnored, col.ColumnName) {
 		return ""
 	}
-	ret := uname + " " + datatype(col, lang) + " " + " `" + "json:\"" + lname + "\" form:\"" + lname + "\""
+	ret := fieldname + " " + datatype(col, lang) + " " + " `" + "json:\"" + lname + "\" form:\"" + lname + "\""
+	//fmt.Println(ret,lang,datatype(col, lang))
 	if col.DataType == "date" || col.DataType == "datetime" {
 		ret = ret + ` time_format:"2006-01-02 15:04:05" time_utc:"1"`
 	}
@@ -256,7 +255,6 @@ const version = `
 \_/\_\\____\\____/  \_/  \____/  \_/  \____/ restctl@0.1.1,
 
 email=271151388@qq.com,author=winlion,all rights reserved!
-
 `
 
 func PathExists(path string) (bool, error) {
@@ -321,10 +319,8 @@ func main() {
 		v.SetDefault("table", "test")
 	}
 
-	if config.Lang == "" {
-		if config.Lang != *lang {
-			v.SetDefault("lang", *lang)
-		}
+	if config.Lang != *lang {
+		v.SetDefault("table", *lang)
 	}
 
 	//设置模板
@@ -456,7 +452,6 @@ func main() {
 			}
 			//转换成abC的形式
 			col.ColumnJsonName = lcfirst(transfer(col.ColumnName))
-			fmt.Println("buildtag(%s, %t, %s) ", col.ColumnJsonName, true, config.Lang)
 			col.ModelTag = buildtag(col, true, config.Lang)
 			col.ArgTag = buildtag(col, false, config.Lang)
 			col.DataTypeGo = datatype(col, "go")
