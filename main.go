@@ -22,19 +22,19 @@ import (
 )
 
 type Column struct {
-	ColumnName      string        `json:"colname"`
-	ColumnJsonName  string        `json:"coljsonname"`
-	DataType        string        `json:"datatype"`
-	CharMaxLen      int           `json:"maxlen"`
-	ColumnType      string        `json:"coltype"`
-	Nump            int           `json:"nump"`
-	Nums            int           `json:"nums"`
-	Comment         string        `json:"comment"`
-	DataTypeJava    string        `json:"datatypejava"`
-	DataTypeGo      string        `json:"datatypego"`
-	ColumnKey       string        `json:"columnkey"`
+	ColumnName      string        `json:"colname"`      //role_id
+	ColumnJsonName  string        `json:"coljsonname"`  //roleId
+	DataType        string        `json:"datatype"`     //bigint(20)
+	CharMaxLen      int           `json:"maxlen"`       //20
+	ColumnType      string        `json:"coltype"`      //PRI
+	Nump            int           `json:"nump"`         //20
+	Nums            int           `json:"nums"`         //5
+	Comment         string        `json:"comment"`      //字段描述
+	DataTypeJava    string        `json:"datatypejava"` //String
+	DataTypeGo      string        `json:"datatypego"`   //string
+	ColumnKey       string        `json:"columnkey"`    //
 	Extra           string        `json:"extra"`
-	OrdinalPosition string        `json:"position"`
+	OrdinalPosition string        `json:"position"` // 原始位置
 	ModelTag        template.HTML `json:"modeltag"`
 	ArgTag          template.HTML `json:"argtag"`
 }
@@ -132,6 +132,7 @@ var datatypemapjava map[string]string = map[string]string{
 // Col int
 func datatype(col Column, lang string) string {
 	//tinyint(1) 特殊处理
+	fmt.Println(col.ColumnJsonName, "=>", lang)
 	if lang == "go" {
 		if col.ColumnType == "tinyint(1)" {
 			return "bool"
@@ -252,7 +253,7 @@ const version = `
 /  __\/  __// ___\/__ __\/   _\/__ __\/ \   
 |  \/||  \  |    \  / \  |  /    / \  | |   
 |    /|  /_ \___ |  | |  |  \_   | |  | |_/\
-\_/\_\\____\\____/  \_/  \____/  \_/  \____/ restctl@0.1.0,
+\_/\_\\____\\____/  \_/  \____/  \_/  \____/ restctl@0.1.1,
 
 email=271151388@qq.com,author=winlion,all rights reserved!
 
@@ -320,8 +321,10 @@ func main() {
 		v.SetDefault("table", "test")
 	}
 
-	if config.Lang != *lang {
-		v.SetDefault("table", *lang)
+	if config.Lang == "" {
+		if config.Lang != *lang {
+			v.SetDefault("lang", *lang)
+		}
 	}
 
 	//设置模板
@@ -395,7 +398,10 @@ func main() {
 			if !strings.Contains(*exclude, tablename) {
 				tables = append(tables, tablename)
 			}
-
+		}
+		if len(tables) == 0 {
+			fmt.Println("not fount any table")
+			return
 		}
 	}
 	tmpls := template.New("root")
@@ -434,6 +440,11 @@ func main() {
 			fmt.Println(err)
 			return
 		}
+		//输出模板
+		dstdata := new(DstData)
+		dstdata.Package = config.Package
+		dstdata.Model = ucfirst(transfer(model))
+		dstdata.ModelL = lcfirst(transfer(model))
 		//
 		for rows.Next() {
 
@@ -445,28 +456,26 @@ func main() {
 			}
 			//转换成abC的形式
 			col.ColumnJsonName = lcfirst(transfer(col.ColumnName))
+			fmt.Println("buildtag(%s, %t, %s) ", col.ColumnJsonName, true, config.Lang)
 			col.ModelTag = buildtag(col, true, config.Lang)
 			col.ArgTag = buildtag(col, false, config.Lang)
 			col.DataTypeGo = datatype(col, "go")
 			col.DataTypeJava = datatype(col, "java")
 			columns = append(columns, col)
-		}
-		//输出表注释
-
-		//输出模板
-		dstdata := new(DstData)
-		dstdata.Package = config.Package
-		dstdata.Model = ucfirst(transfer(model))
-		dstdata.ModelL = lcfirst(transfer(model))
-		dstdata.Columns = columns
-		dstdata.ModelApi = template.JS(lcfirst(transfer(model)) + "Api")
-		dstdata.TableName = tablename
-		dstdata.Now = time.Now().Format("2006-01-02 15:04:05")
-		for _, col := range columns {
 			if col.IsKey() {
 				dstdata.ColPk = col
 			}
 		}
+		//输出表注释
+		if len(columns) == 0 {
+			fmt.Printf("%s.%s not exist \n", dbname, tablename)
+			continue
+		}
+		dstdata.Columns = columns
+		dstdata.ModelApi = template.JS(lcfirst(transfer(model)) + "Api")
+		dstdata.TableName = tablename
+		dstdata.Now = time.Now().Format("2006-01-02 15:04:05")
+
 		//
 		comments, err := MtsqlDb.Query(`select table_comment from information_schema.tables where table_schema=? and table_name = ?`, dbname, tablename)
 
@@ -516,6 +525,7 @@ func main() {
 			content = strings.ReplaceAll(content, "&lt;", "<")
 			ioutil.WriteFile(dstFile, []byte(content), 0766)
 		}
+		os.Remove("root")
 		fmt.Println("generate code " + tablename + "->" + model + " √")
 	}
 
