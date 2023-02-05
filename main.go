@@ -198,8 +198,8 @@ func buildtag(col Column, useGorm bool, lang string) template.HTML {
 		if col.IsKey() {
 			ret = ret + `;"primaryKey";`
 		}
-		if col.DefaultValue != "" {
-			ret = ret + `;"default:` + col.DefaultValue + `";`
+		if col.DefaultValue.Valid {
+			ret = ret + `;"default:` + col.DefaultValue.String + `";`
 		}
 		if col.DataType == "varchar" {
 			if col.CharMaxLen == 0 {
