@@ -27,6 +27,7 @@ type Column struct {
 	DataType        string        `json:"datatype"`     //bigint(20)
 	CharMaxLen      int           `json:"maxlen"`       //20
 	ColumnType      string        `json:"coltype"`      //PRI
+	DefaultValue    string        `json:"defaultvalue"` //PRI
 	Nump            int           `json:"nump"`         //20
 	Nums            int           `json:"nums"`         //5
 	Comment         string        `json:"comment"`      //字段描述
@@ -194,6 +195,12 @@ func buildtag(col Column, useGorm bool, lang string) template.HTML {
 	if useGorm {
 
 		ret = ret + ` gorm:"comment:` + col.Comment
+		if col.IsKey() {
+			ret = ret + `;"primaryKey";`
+		}
+		if col.DefaultValue != "" {
+			ret = ret + `;"default:` + col.DefaultValue + `";`
+		}
 		if col.DataType == "varchar" {
 			if col.CharMaxLen == 0 {
 				col.CharMaxLen = 250
@@ -319,8 +326,10 @@ func main() {
 		v.SetDefault("table", "test")
 	}
 
-	if config.Lang != *lang {
-		v.SetDefault("table", *lang)
+	if config.Lang == "" {
+		if config.Lang != *lang {
+			v.SetDefault("table", *lang)
+		}
 	}
 
 	//设置模板
@@ -431,7 +440,7 @@ func main() {
 
 		}
 
-		rows, err := MtsqlDb.Query(`select COLUMN_NAME ,DATA_TYPE,IFNULL(CHARACTER_MAXIMUM_LENGTH,0),COLUMN_TYPE,IFNULL(NUMERIC_PRECISION,0),IFNULL(NUMERIC_SCALE,0),COLUMN_COMMENT,column_key,extra,ORDINAL_POSITION  from information_schema.COLUMNS where  table_schema = ? and  table_name = ?`, dbname, tablename)
+		rows, err := MtsqlDb.Query(`select COLUMN_NAME ,DATA_TYPE,IFNULL(CHARACTER_MAXIMUM_LENGTH,0),COLUMN_TYPE,IFNULL(NUMERIC_PRECISION,0),IFNULL(NUMERIC_SCALE,0),COLUMN_COMMENT,COLUMN_DEFAULT,column_key,extra,ORDINAL_POSITION  from information_schema.COLUMNS where  table_schema = ? and  table_name = ?`, dbname, tablename)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -445,7 +454,7 @@ func main() {
 		for rows.Next() {
 
 			col := Column{}
-			err := rows.Scan(&col.ColumnName, &col.DataType, &col.CharMaxLen, &col.ColumnType, &col.Nump, &col.Nums, &col.Comment, &col.ColumnKey, &col.Extra, &col.OrdinalPosition)
+			err := rows.Scan(&col.ColumnName, &col.DataType, &col.CharMaxLen, &col.ColumnType, &col.Nump, &col.Nums, &col.Comment, &col.DefaultValue, &col.ColumnKey, &col.Extra, &col.OrdinalPosition)
 			if err != nil {
 				fmt.Println(err.Error())
 				return
