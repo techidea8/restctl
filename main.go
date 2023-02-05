@@ -190,24 +190,31 @@ func buildtag(col Column, useGorm bool, lang string) template.HTML {
 	ret := fieldname + " " + datatype(col, lang) + " " + " `" + "json:\"" + lname + "\" form:\"" + lname + "\""
 	//fmt.Println(ret,lang,datatype(col, lang))
 	if col.DataType == "date" || col.DataType == "datetime" {
-		ret = ret + ` time_format:"2006-01-02 15:04:05" time_utc:"1"`
+		ret = ret + ` time_format:"2006-01-02 15:04:05" time_utc:"1" `
 	}
 	if useGorm {
-
+		tmp := make([]string, 0)
+		tmp = append(tmp, "comment:"+col.Comment)
 		ret = ret + ` gorm:"comment:` + col.Comment
 		if col.IsKey() {
-			ret = ret + `;"primaryKey";`
+			tmp = append(tmp, "primaryKey")
 		}
 		if col.DefaultValue.Valid {
-			ret = ret + `;"default:` + col.DefaultValue.String + `";`
+			tmp = append(tmp, "default:"+col.DefaultValue.String)
 		}
 		if col.DataType == "varchar" {
 			if col.CharMaxLen == 0 {
 				col.CharMaxLen = 250
 			}
-			ret = ret + `;type:varchar(` + strconv.Itoa(col.CharMaxLen) + `)`
+			tmp = append(tmp, `type:varchar(`+strconv.Itoa(col.CharMaxLen)+`)`)
+		} else if col.DataType == "int" {
+			tmp = append(tmp, `type:int`)
+		} else if col.DataType == "decimal" || col.DataType == "number" {
+			tmp = append(tmp, `type:`+col.DataType+`(20,2)`)
+		} else {
+			tmp = append(tmp, `type:`+col.DataType)
 		}
-		ret = ret + "\"` "
+		ret = ` gorm:"` + strings.Join(tmp, ";") + `"`
 	} else {
 		ret = ret + "`"
 	}
