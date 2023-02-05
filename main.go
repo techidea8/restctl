@@ -22,22 +22,22 @@ import (
 )
 
 type Column struct {
-	ColumnName      string        `json:"colname"`      //role_id
-	ColumnJsonName  string        `json:"coljsonname"`  //roleId
-	DataType        string        `json:"datatype"`     //bigint(20)
-	CharMaxLen      int           `json:"maxlen"`       //20
-	ColumnType      string        `json:"coltype"`      //PRI
-	DefaultValue    string        `json:"defaultvalue"` //PRI
-	Nump            int           `json:"nump"`         //20
-	Nums            int           `json:"nums"`         //5
-	Comment         string        `json:"comment"`      //字段描述
-	DataTypeJava    string        `json:"datatypejava"` //String
-	DataTypeGo      string        `json:"datatypego"`   //string
-	ColumnKey       string        `json:"columnkey"`    //
-	Extra           string        `json:"extra"`
-	OrdinalPosition string        `json:"position"` // 原始位置
-	ModelTag        template.HTML `json:"modeltag"`
-	ArgTag          template.HTML `json:"argtag"`
+	ColumnName      string         `json:"colname"`      //role_id
+	ColumnJsonName  string         `json:"coljsonname"`  //roleId
+	DataType        string         `json:"datatype"`     //bigint(20)
+	CharMaxLen      int            `json:"maxlen"`       //20
+	ColumnType      string         `json:"coltype"`      //PRI
+	DefaultValue    sql.NullString `json:"defaultvalue"` //PRI
+	Nump            int            `json:"nump"`         //20
+	Nums            int            `json:"nums"`         //5
+	Comment         string         `json:"comment"`      //字段描述
+	DataTypeJava    string         `json:"datatypejava"` //String
+	DataTypeGo      string         `json:"datatypego"`   //string
+	ColumnKey       string         `json:"columnkey"`    //
+	Extra           string         `json:"extra"`
+	OrdinalPosition string         `json:"position"` // 原始位置
+	ModelTag        template.HTML  `json:"modeltag"`
+	ArgTag          template.HTML  `json:"argtag"`
 }
 
 func (col *Column) IsKey() bool {
