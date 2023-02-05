@@ -202,6 +202,9 @@ func buildtag(col Column, useGorm bool, lang string) template.HTML {
 		if col.DefaultValue.Valid {
 			tmp = append(tmp, "default:"+col.DefaultValue.String)
 		}
+		if col.ColumnKey != "" && !col.IsKey() {
+			tmp = append(tmp, "index")
+		}
 		if col.DataType == "varchar" {
 			if col.CharMaxLen == 0 {
 				col.CharMaxLen = 250
