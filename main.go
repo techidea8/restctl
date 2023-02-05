@@ -12,7 +12,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -22,11 +21,12 @@ import (
 )
 
 type Column struct {
-	ColumnName      string         `json:"colname"`      //role_id
-	ColumnJsonName  string         `json:"coljsonname"`  //roleId
-	DataType        string         `json:"datatype"`     //bigint(20)
-	CharMaxLen      int            `json:"maxlen"`       //20
-	ColumnType      string         `json:"coltype"`      //PRI
+	ColumnName      string         `json:"colname"`     //role_id
+	ColumnJsonName  string         `json:"coljsonname"` //roleId
+	DataType        string         `json:"datatype"`    //bigint(20)
+	CharMaxLen      int            `json:"maxlen"`      //20
+	ColumnType      string         `json:"coltype"`     //PRI
+	IsNullAble      string         `json:"isNullAble"`
 	DefaultValue    sql.NullString `json:"defaultvalue"` //PRI
 	Nump            int            `json:"nump"`         //20
 	Nums            int            `json:"nums"`         //5
@@ -63,8 +63,17 @@ type DstData struct {
 	ColPk      Column      `json:"colpk"`
 	Comment    string      `json:"comment"`
 	Now        string      `json:"now"`
+	ExternPkg  []string    `json:"externPkg"`
+	HasImport  bool
 }
 
+func newDstData() *DstData {
+	return &DstData{
+		ExternPkg: make([]string, 0),
+		Columns:   make([]Column, 0),
+		HasImport: false,
+	}
+}
 func ucfirst(str string) string {
 	for i, v := range str {
 		return string(unicode.ToUpper(v)) + str[i+1:]
@@ -194,35 +203,30 @@ func buildtag(col *Column, useGorm bool, lang string) template.HTML {
 	}
 	if useGorm {
 		tmp := make([]string, 0)
-		tmp = append(tmp, "comment:"+col.Comment)
 		if col.IsKey() {
 			tmp = append(tmp, "primaryKey")
-		}
-		if col.Extra != "" {
-			tmp = append(tmp, col.Extra)
-		}
-		if col.DefaultValue.Valid {
-			tmp = append(tmp, "default:"+col.DefaultValue.String)
 		}
 		if col.ColumnKey != "" && !col.IsKey() {
 			tmp = append(tmp, "index")
 		}
-		if col.DataType == "varchar" {
-			if col.CharMaxLen == 0 {
-				col.CharMaxLen = 250
-			}
-			tmp = append(tmp, `type:varchar(`+strconv.Itoa(col.CharMaxLen)+`)`)
-		} else if col.DataType == "int" {
-			tmp = append(tmp, `type:int`)
-		} else if col.DataType == "decimal" || col.DataType == "number" {
-			tmp = append(tmp, `type:`+col.DataType+`(20,2)`)
-		} else {
-			tmp = append(tmp, `type:`+col.DataType)
+
+		dtype := col.ColumnType
+		if col.IsNullAble == "NO" {
+			dtype += " not null "
 		}
-		ret = ` gorm:"` + strings.Join(tmp, ";") + `"`
-	} else {
-		ret = ret + "`"
+		if col.Extra != "" {
+			dtype += " " + col.Extra + " "
+		}
+		tmp = append(tmp, "type:"+dtype)
+
+		if col.DefaultValue.Valid {
+			tmp = append(tmp, "default:"+col.DefaultValue.String)
+		}
+		tmp = append(tmp, "comment:"+col.Comment)
+		ret = ret + ` gorm:"` + strings.Join(tmp, ";") + `" `
 	}
+
+	ret = ret + "`"
 
 	return template.HTML(ret)
 }
@@ -452,21 +456,22 @@ func main() {
 
 		}
 
-		rows, err := MtsqlDb.Query(`select COLUMN_NAME ,DATA_TYPE,IFNULL(CHARACTER_MAXIMUM_LENGTH,0),COLUMN_TYPE,IFNULL(NUMERIC_PRECISION,0),IFNULL(NUMERIC_SCALE,0),COLUMN_COMMENT,COLUMN_DEFAULT,COLUMN_KEY,EXTRA,ORDINAL_POSITION  from information_schema.COLUMNS where  table_schema = ? and  table_name = ?`, dbname, tablename)
+		rows, err := MtsqlDb.Query(`select COLUMN_NAME ,DATA_TYPE,IFNULL(CHARACTER_MAXIMUM_LENGTH,0),COLUMN_TYPE,IFNULL(NUMERIC_PRECISION,0),IFNULL(NUMERIC_SCALE,0),COLUMN_COMMENT,COLUMN_DEFAULT,IS_NULLABLE,COLUMN_KEY,EXTRA,ORDINAL_POSITION  from information_schema.COLUMNS where  table_schema = ? and  table_name = ?`, dbname, tablename)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 		//输出模板
-		dstdata := new(DstData)
+		dstdata := newDstData()
 		dstdata.Package = config.Package
 		dstdata.Model = ucfirst(transfer(model))
 		dstdata.ModelL = lcfirst(transfer(model))
 		//
+		tmppkg := map[string]bool{}
 		for rows.Next() {
 
 			col := Column{}
-			err := rows.Scan(&col.ColumnName, &col.DataType, &col.CharMaxLen, &col.ColumnType, &col.Nump, &col.Nums, &col.Comment, &col.DefaultValue, &col.ColumnKey, &col.Extra, &col.OrdinalPosition)
+			err := rows.Scan(&col.ColumnName, &col.DataType, &col.CharMaxLen, &col.ColumnType, &col.Nump, &col.Nums, &col.Comment, &col.DefaultValue, &col.IsNullAble, &col.ColumnKey, &col.Extra, &col.OrdinalPosition)
 			if err != nil {
 				fmt.Println(err.Error())
 				return
@@ -477,16 +482,27 @@ func main() {
 			col.ArgTag = buildtag(&col, false, config.Lang)
 			col.DataTypeGo = datatype(col, "go")
 			col.DataTypeJava = datatype(col, "java")
+			if col.DataTypeGo == "core.DateTime" || col.DataTypeGo == "core.Date" {
+				tmppkg[dstdata.Package+"/core"] = true
+			}
 			columns = append(columns, col)
 			if col.IsKey() {
 				dstdata.ColPk = col
 			}
 		}
+
 		//输出表注释
 		if len(columns) == 0 {
 			fmt.Printf("%s.%s not exist \n", dbname, tablename)
 			continue
 		}
+		for k := range tmppkg {
+			dstdata.ExternPkg = append(dstdata.ExternPkg, k)
+		}
+		if dstdata.ColPk.DataType == "string" || len(dstdata.ExternPkg) > 0 {
+			dstdata.HasImport = true
+		}
+
 		dstdata.Columns = columns
 		dstdata.ModelApi = template.JS(lcfirst(transfer(model)) + "Api")
 		dstdata.TableName = tablename
