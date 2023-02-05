@@ -180,14 +180,14 @@ func contains(arr []string, str string) bool {
 }
 
 // 构造tag
-func buildtag(col Column, useGorm bool, lang string) template.HTML {
+func buildtag(col *Column, useGorm bool, lang string) template.HTML {
 	fieldname := transfer(col.ColumnName)
 	lname := lcfirst(fieldname)
 	//如果是一些关键数值那么直接处理
 	if contains(filedsIgnored, col.ColumnName) {
 		return ""
 	}
-	ret := fieldname + " " + datatype(col, lang) + " " + " `" + "json:\"" + lname + "\" form:\"" + lname + "\""
+	ret := fieldname + " " + datatype(*col, lang) + " " + " `" + "json:\"" + lname + "\" form:\"" + lname + "\""
 	//fmt.Println(ret,lang,datatype(col, lang))
 	if col.DataType == "date" || col.DataType == "datetime" {
 		ret = ret + ` time_format:"2006-01-02 15:04:05" time_utc:"1" `
@@ -195,9 +195,11 @@ func buildtag(col Column, useGorm bool, lang string) template.HTML {
 	if useGorm {
 		tmp := make([]string, 0)
 		tmp = append(tmp, "comment:"+col.Comment)
-		ret = ret + ` gorm:"comment:` + col.Comment
 		if col.IsKey() {
 			tmp = append(tmp, "primaryKey")
+		}
+		if col.Extra != "" {
+			tmp = append(tmp, col.Extra)
 		}
 		if col.DefaultValue.Valid {
 			tmp = append(tmp, "default:"+col.DefaultValue.String)
@@ -450,7 +452,7 @@ func main() {
 
 		}
 
-		rows, err := MtsqlDb.Query(`select COLUMN_NAME ,DATA_TYPE,IFNULL(CHARACTER_MAXIMUM_LENGTH,0),COLUMN_TYPE,IFNULL(NUMERIC_PRECISION,0),IFNULL(NUMERIC_SCALE,0),COLUMN_COMMENT,COLUMN_DEFAULT,column_key,extra,ORDINAL_POSITION  from information_schema.COLUMNS where  table_schema = ? and  table_name = ?`, dbname, tablename)
+		rows, err := MtsqlDb.Query(`select COLUMN_NAME ,DATA_TYPE,IFNULL(CHARACTER_MAXIMUM_LENGTH,0),COLUMN_TYPE,IFNULL(NUMERIC_PRECISION,0),IFNULL(NUMERIC_SCALE,0),COLUMN_COMMENT,COLUMN_DEFAULT,COLUMN_KEY,EXTRA,ORDINAL_POSITION  from information_schema.COLUMNS where  table_schema = ? and  table_name = ?`, dbname, tablename)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -471,8 +473,8 @@ func main() {
 			}
 			//转换成abC的形式
 			col.ColumnJsonName = lcfirst(transfer(col.ColumnName))
-			col.ModelTag = buildtag(col, true, config.Lang)
-			col.ArgTag = buildtag(col, false, config.Lang)
+			col.ModelTag = buildtag(&col, true, config.Lang)
+			col.ArgTag = buildtag(&col, false, config.Lang)
 			col.DataTypeGo = datatype(col, "go")
 			col.DataTypeJava = datatype(col, "java")
 			columns = append(columns, col)
