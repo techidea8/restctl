@@ -38,6 +38,7 @@ type Column struct {
 	OrdinalPosition string         `json:"position"` // 原始位置
 	ModelTag        template.HTML  `json:"modeltag"`
 	ArgTag          template.HTML  `json:"argtag"`
+	IsArg bool `json:"isArg"`
 }
 
 func (col *Column) IsKey() bool {
@@ -267,6 +268,8 @@ var trimprefix = flag.String("trimprefix", "", "trim the prefix of tablename use
 
 var lang = flag.String("lang", "go", "language eg:go/java")
 
+var condtionArgs = flag.String("args", "", "is arg for search ,splite with ,")
+
 var model = ""
 var config *Config = new(Config)
 
@@ -485,6 +488,7 @@ func main() {
 			if col.DataTypeGo == "core.DateTime" || col.DataTypeGo == "core.Date" {
 				tmppkg[dstdata.Package+"/core"] = true
 			}
+			col.IsArg = strings.Contains(*condtionArgs,col.ColumnJsonName)
 			columns = append(columns, col)
 			if col.IsKey() {
 				dstdata.ColPk = col
