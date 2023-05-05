@@ -1,0 +1,41 @@
+{{define "./server/args/[model].go.tpl"}}
+//{{.Comment}}
+package args
+import(
+    "github.com/techidea8/restgo/core"
+	"gorm.io/gorm"
+)
+
+type {{.Model}} struct{
+    core.PageArg
+	Total int `json:"total" form:"total"`
+	{{range $i,$v := .Columns}}
+       {{if eq $v.IsSearchField true}} {{ $v.ArgTag }}{{end}}
+    {{end}}
+}
+
+
+//分页
+func (p *{{.Model}}) Condtions() func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+
+		{{range $i,$v := .Columns}}
+       		{{if eq $v.IsSearchField true}} 
+				{{if eq $v.DataTypeGo "string"}}
+				if len(p.{{$v.ColumnJsonName|ucfirst}})>0{
+					db = db.Where("{{$v.ColumnName}} = ?",p.{{$v.ColumnJsonName|ucfirst}})
+				}
+				{{else}}
+				if p.{{$v.ColumnJsonName}}>0{
+					db = db.Where("{{$v.ColumnName}} = ?",p.{{$v.ColumnJsonName|ucfirst}})
+				}
+				{{end}}
+			{{end}}
+    	{{end}}
+
+		db = db.Where("deleted  = ?", p.Deleted)
+		return db
+	}
+}
+//结束
+{{end}}

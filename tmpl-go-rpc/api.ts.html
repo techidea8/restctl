@@ -1,0 +1,75 @@
+{{define "./console/src/api/[model].ts.tpl"}}
+import { restrequest as request } from "@/utils/service"
+import {ISearch} from "./types"
+const prefix = `/{{.ModelL}}`
+
+export interface I{{.Model}} {
+    {{range $i,$v := .Columns}}
+ {{$v.ColumnJsonName }}? : {{if eq $v.DataTypeGo "string" }}string{{else if eq  $v.DataTypeGo "uint" }}number{{else if eq  $v.DataTypeGo "int" }}number{{else}} any {{end}}   // {{.Comment}}
+    {{end}}
+}
+export interface ISearch{{.Model}} extends ISearch ,I{{.Model}}{} 
+//查询,搜索
+export function search(data:ISearch{{.Model}}) {
+  return request({
+    url: prefix +'/search',
+    method: 'post',
+    data:data
+  })
+}
+
+//创建对象
+export function create(data:I{{.Model}}) {
+
+  return request({
+    url: prefix+'/create',
+    method: 'post',
+    data
+  })
+}
+//更新
+export function update(data:I{{.Model}}) {
+  return request({
+    url: prefix+'/update',
+    method: 'post',
+    data
+  })
+}
+//获取一条记录
+export function getOne({{.ColPk.ColumnJsonName}} : string|number) {
+  return request({
+    url: prefix+`/getOne`,
+    method: 'get',
+    params:{ {{.ColPk.ColumnJsonName}} }
+  })
+}
+
+//删除某一条记录
+export function deleteIt({{.ColPk.ColumnJsonName}} : string|number) {
+
+  return request({
+    url: prefix+'/delete',
+    method: 'post',
+    data:{
+      {{.ColPk.ColumnJsonName}}
+    }
+  })
+}
+
+//删除某一条记录
+export function download({{.ColPk.ColumnJsonName}}:any) {
+
+  return request({
+    url: prefix+'/export',
+    method: 'post',
+    responseType: 'blob',
+    data:{
+      {{.ColPk.ColumnJsonName}}
+    }
+  })
+}
+
+//默认输出api对象
+export default {search,create,update,deleteIt,getOne,download}
+
+{{end}}

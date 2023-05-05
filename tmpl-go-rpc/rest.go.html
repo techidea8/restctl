@@ -1,0 +1,98 @@
+{{define "./server/rest/[model].go.tpl"}}
+package rest
+
+import (
+	"net/http"
+	"{{.Package}}/args"
+	"{{.Package}}/model"
+	"{{.Package}}/logic"
+	"github.com/techidea8/restgo/core"
+	{{if ne .ColPk.DataTypeGo "string"}}
+	"strconv"
+	{{end}}
+)
+//{{.Comment}}控制器
+type {{.Model}} struct {
+	core.RestCtrl
+}
+
+func init() {
+	core.Register(&{{.Model}}{})
+}
+
+//搜索{{.Comment}}
+func (ctrl *{{.Model}}) Search(w http.ResponseWriter, req *http.Request) {
+	arg := args.{{.Model}}{}
+	if err := core.Bind(req, &arg); err != nil {
+		ctrl.RespFail(w, err.Error())
+		return
+	}
+	if result, total, err := logic.Search{{.Model}}(arg); err != nil {
+		ctrl.RespFail(w, err.Error())
+	} else {
+
+		ctrl.RespList(w, result, total)
+	}
+}
+
+//创建{{.Comment}}
+func (ctrl *{{.Model}}) Create(w http.ResponseWriter, req *http.Request) {
+	property := model.{{.Model}}{}
+	if err := core.Bind(req, &property); err != nil {
+		ctrl.RespFail(w, err.Error())
+		return
+	}
+	if result, err := logic.Create{{.Model}}(property); err != nil {
+		ctrl.RespFail(w, err.Error())
+	} else {
+		ctrl.RespOk(w, result)
+	}
+}
+
+//更新{{.Comment}}
+func (ctrl *{{.Model}}) Update(w http.ResponseWriter, req *http.Request) {
+	property := model.{{.Model}}{}
+	if err := core.Bind(req, &property); err != nil {
+		ctrl.RespFail(w, err.Error())
+		return
+	}
+	result, err := logic.Update{{.Model}}(property)
+	if err != nil {
+		ctrl.RespFail(w, err.Error())
+	} else {
+		ctrl.RespOk(w, result)
+	}
+}
+
+//删除{{.Comment}},系统默认都是逻辑删除
+func (ctrl *{{.Model}}) Delete(w http.ResponseWriter, req *http.Request) {
+	property := model.{{.Model}}{}
+	if err := core.Bind(req, &property); err != nil {
+		ctrl.RespFail(w, err.Error())
+		return
+	}
+	if result, err := logic.LogicDelete{{.Model}}(property); err != nil {
+		ctrl.RespFail(w, err.Error())
+	} else {
+		ctrl.RespOk(w, result)
+	}
+}
+
+//获取{{.Comment}}
+func (ctrl *{{.Model}}) GetOne(w http.ResponseWriter, req *http.Request) {
+	instanceId := req.URL.Query().Get("{{.ColPk.ColumnJsonName}}")
+	{{if eq .ColPk.DataTypeGo "string"}}
+	if d, e := logic.Find{{.Model}}(instanceId); e != nil {
+	{{else}}
+	id ,_ := strconv.Atoi(instanceId)
+	if d, e := logic.Find{{.Model}}(uint(id)); e != nil {
+	{{end}}
+
+		ctrl.RespFail(w, e.Error())
+	} else {
+		ctrl.RespOk(w, d)
+	}
+}
+
+
+{{end}}

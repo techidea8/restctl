@@ -1,0 +1,107 @@
+{{define "./server/rpc/[model].go.tpl"}}
+package rpc
+
+import (
+	"context"
+	"encoding/json"
+	"{{.Package}}/args"
+	"{{.Package}}/logic"
+	"{{.Package}}/server"
+	"{{.Package}}/model"
+	"github.com/techidea8/restgo/core"
+)
+//{{.Comment}}控制器
+type {{.Model}} struct {}
+
+func init() {
+	server.RegisterRpcModule(&{{.Model}}{})
+}
+
+//搜索{{.Comment}}
+func (ctrl *{{.Model}}) Search(ctx context.Context, req []byte, resp *[]byte)( error) {
+	arg := args.{{.Model}}{}
+	if err :=json.Unmarshal(req, &arg);err!=nil{
+		return err
+	}
+	result, total, err := logic.Search{{.Model}}(arg);
+	if err != nil {
+		return err
+	} 
+	reply :=&core.RespData{
+		Rows:make([]interface{},0)
+	}
+	reply.WithRows(result).WithTotal(total).Ok()
+	*resp,err =  json.Marshal(reply)
+	return err
+}
+
+//创建{{.Comment}}
+func (ctrl *{{.Model}}) Create(ctx context.Context, req []byte, resp *[]byte)(err error) {
+	property := model.{{.Model}}{}
+	if err=json.Unmarshal(req, &property);err!=nil{
+		return err
+	}
+	result, err := logic.Create{{.Model}}(property);
+	reply := &core.RespData{}
+	if err != nil {
+		reply.Fail(err.Error())
+		return err
+	}
+	reply.WithData(result).Ok()
+	*resp,err =  json.Marshal(reply)
+	return err
+}
+
+//更新{{.Comment}}
+func (ctrl *{{.Model}}) Update(ctx context.Context, req []byte, resp *[]byte)(err error) {
+	property := model.{{.Model}}{}
+	if err :=json.Unmarshal(req, &property);err!=nil{
+		return err
+	}
+	result, err := logic.Update{{.Model}}(property)
+	reply := &core.RespData{}
+	if err != nil {
+		reply.Fail(err.Error())
+		return err
+	}
+	reply.WithData(result).Ok()
+	*resp,err =  json.Marshal(reply)
+	return err
+}
+
+//删除{{.Comment}},系统默认都是逻辑删除
+func (ctrl *{{.Model}}) Delete(ctx context.Context, req []byte, resp *[]byte) error {
+	property := model.{{.Model}}{}
+	if err :=json.Unmarshal(req, &property);err!=nil{
+		return err
+	}
+	result, err := logic.LogicDelete{{.Model}}(property);
+	reply := &core.RespData{}
+	if err != nil {
+		reply.Fail(err.Error())
+		return err
+	}
+	reply.WithData(result).Ok()
+	*resp,err =  json.Marshal(reply)
+	return err
+}
+
+//获取{{.Comment}}
+func (ctrl *{{.Model}}) GetOne(ctx context.Context, req []byte, resp *[]byte) error {
+	property := model.{{.Model}}{}
+	if err :=json.Unmarshal(req, &property);err!=nil{
+		return err
+	}
+	result, err := logic.Find{{.Model}}(property.{{.ColPk.ColumnName}});
+	reply := &core.RespData{}
+	if err != nil {
+		reply.Fail(err.Error())
+		return err
+	}
+	reply.WithData(result).Ok()
+	*resp,err =  json.Marshal(reply)
+	return err
+}
+
+
+{{end}}

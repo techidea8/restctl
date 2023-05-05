@@ -1,0 +1,277 @@
+{{define "./console/src/views/[model]/index.vue.tpl"}}
+<template>
+  <div class="app-container">
+    <el-card v-loading="loading" shadow="never" class="search-wrapper">
+      <el-form ref="searchFormRef" :inline="true" :model="searchData">
+        {{range $i,$v := .Columns}}
+        {{if eq $v.IsSearchField true}}
+        {{if eq $v.DataType  "datetime"}}
+              <el-form-item label="{{$v.Comment}}">
+                  <el-date-picker
+                          v-model="searchData.{{$v.ColumnJsonName}}"
+                          type="datetime"
+                          placeholder="选择日期时间">
+                  </el-date-picker>
+              </el-form-item>
+          {{else if eq $v.DataType  "date"}}
+              <el-form-item label="{{$v.Comment}}">
+                  <el-input v-model="searchData.{{$v.ColumnJsonName}}" placeholder="输入"></el-input>
+              </el-form-item>
+          {{else if eq $v.DataType  "int"}}
+          <el-form-item label="{{$v.Comment}}">
+              <el-input v-model.number="searchData.{{$v.ColumnJsonName}}" type="number" placeholder="输入"></el-input>
+          </el-form-item>
+          {{else if eq $v.DataType  "bigint"}}
+          <el-form-item label="{{$v.Comment}}">
+              <el-input v-model.number="searchData.{{$v.ColumnJsonName}}" type="number" placeholder="输入"></el-input>
+          </el-form-item>
+              {{else if eq $v.DataType  "numeric"}}
+              <el-form-item label="{{$v.Comment}}">
+                  <el-input v-model.number="searchData.{{$v.ColumnJsonName}}" type="number" placeholder="输入"></el-input>
+              </el-form-item>
+              {{else if eq $v.DataType  "decimal"}}
+              <el-form-item label="{{$v.Comment}}">
+                  <el-input v-model.number="searchData.{{$v.ColumnJsonName}}" type="number" placeholder="输入"></el-input>
+              </el-form-item>
+          {{else if eq $v.DataType  "varchar"}}
+              {{if gt $v.CharMaxLen 200}}
+                  <el-form-item label="{{$v.Comment}}">
+                      <el-input v-model="searchData.{{$v.ColumnJsonName}}" type="textarea" placeholder="输入"></el-input>
+                  </el-form-item>
+              {{else}}
+              <el-form-item label="{{$v.Comment}}">
+                  <el-input v-model="searchData.{{$v.ColumnJsonName}}" type="text" placeholder="输入"></el-input>
+              </el-form-item>
+              {{end}}
+         {{else}}
+
+          <el-form-item label="{{$v.Comment}}">
+              <el-input v-model="formData.{{$v.ColumnJsonName}}" placeholder="输入"></el-input>
+          </el-form-item>
+          {{end}}
+        {{end}}
+        {{end}}
+
+        <el-form-item>
+          <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
+          <el-button :icon="Refresh" @click="resetSearch">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+    <el-card v-loading="loading" shadow="never">
+      <div class="toolbar-wrapper">
+        <div>
+          <el-button type="primary" :icon="CirclePlus" @click="dialogVisible = true">新增</el-button>
+          <el-button type="danger" :icon="Delete">批量删除</el-button>
+        </div>
+        <div>
+          <el-tooltip content="下载">
+            <el-button type="primary" :icon="Download" circle />
+          </el-tooltip>
+          <el-tooltip content="刷新表格">
+            <el-button type="primary" :icon="RefreshRight" circle @click="handleRefresh" />
+          </el-tooltip>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <el-table :data="tableData">
+          <el-table-column type="selection" width="50" align="center" />
+          {{range $i,$v := .Columns}}
+          <el-table-column align="header-center" prop="{{$v.ColumnJsonName}}" label="{{$v.Comment}}" />
+          {{end}}
+          <el-table-column fixed="right" label="操作" width="150" align="center">
+            <template #default="scope">
+              <el-button type="primary" text bg size="small" @click="handleUpdate(scope.row)">修改</el-button>
+              <el-button type="danger" text bg size="small" @click="handleDelete(scope.row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <div class="pager-wrapper">
+        <el-pagination
+          background
+          :layout="paginationData.layout"
+          :page-sizes="paginationData.pageSizes"
+          :total="paginationData.total"
+          :page-size="paginationData.pageSize"
+          :currentPage="paginationData.currentPage"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
+    </el-card>
+    <!-- 新增/修改 -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="currentUpdateId === undefined ? '新增{{jstxt .Comment}}' : '修改{{jstxt .Comment}}'"
+      @close="resetForm"
+      :close-on-click-modal="false"
+      width="50%"
+    >
+      <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px" label-position="left">
+       
+        {{range $i,$v := .Columns}}
+                  {{if eq $v.DataType  "datetime"}}
+                        <el-form-item label="{{$v.Comment}}">
+                            <el-date-picker
+                                    v-model="formData.{{$v.ColumnJsonName}}"
+                                    type="datetime"
+                                    placeholder="选择日期时间">
+                            </el-date-picker>
+                        </el-form-item>
+                    {{else if eq $v.DataType  "date"}}
+                        <el-form-item label="{{$v.Comment}}">
+                            <el-input v-model="formData.{{$v.ColumnJsonName}}" placeholder="输入"></el-input>
+                        </el-form-item>
+                    {{else if eq $v.DataType  "int"}}
+                    <el-form-item label="{{$v.Comment}}">
+                        <el-input v-model.number="formData.{{$v.ColumnJsonName}}" type="number" placeholder="输入"></el-input>
+                    </el-form-item>
+                    {{else if eq $v.DataType  "bigint"}}
+                    <el-form-item label="{{$v.Comment}}">
+                        <el-input v-model.number="formData.{{$v.ColumnJsonName}}" type="number" placeholder="输入"></el-input>
+                    </el-form-item>
+                        {{else if eq $v.DataType  "numeric"}}
+                        <el-form-item label="{{$v.Comment}}">
+                            <el-input v-model.number="formData.{{$v.ColumnJsonName}}" type="number" placeholder="输入"></el-input>
+                        </el-form-item>
+                        {{else if eq $v.DataType  "decimal"}}
+                        <el-form-item label="{{$v.Comment}}">
+                            <el-input v-model.number="formData.{{$v.ColumnJsonName}}" type="number" placeholder="输入"></el-input>
+                        </el-form-item>
+                    {{else if eq $v.DataType  "varchar"}}
+                       
+                        <el-form-item label="{{$v.Comment}}">
+                            <el-input v-model="formData.{{$v.ColumnJsonName}}" type="text" placeholder="输入"></el-input>
+                        </el-form-item>
+                   {{else}}
+                    <el-form-item label="{{$v.Comment}}">
+                        <el-input v-model="formData.{{$v.ColumnJsonName}}" placeholder="输入"></el-input>
+                    </el-form-item>
+                    {{end}}
+          {{end}}
+
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleCreate">确认</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script lang="ts" setup>
+import  {{.ModelApi}}  from '@/api/{{.ModelL}}'
+import { reactive, ref, watch } from "vue"
+import {I{{.ModelJs}} , ISearch{{.ModelJs}} } from "@/api/{{.ModelL}}"
+import { type FormInstance, type FormRules, ElMessage, ElMessageBox } from "element-plus"
+import { Search, Refresh, CirclePlus, Delete, Download, RefreshRight } from "@element-plus/icons-vue"
+import { usePagination } from "@/hooks/usePagination"
+
+const loading = ref<boolean>(false)
+const { paginationData, handleCurrentChange, handleSizeChange } = usePagination()
+
+//#region 增
+const dialogVisible = ref<boolean>(false)
+const formRef = ref<FormInstance | null>(null)
+const formData = ref<I{{.ModelJs}}>({
+   {{range $i,$v := .Columns}} {{$v.ColumnJsonName}}:{{if eq $v.DataType  "int"}} 0 {{else if eq $v.DataType  "bigint"}} 0 {{else if eq $v.DataType  "varchar"}} "" {{else}} undefined {{end}},{{end}} 
+})
+const formRules: FormRules = reactive({})
+const handleCreate = () => {
+  formRef.value?.validate((valid: boolean) => {
+    if (valid) {
+      if (currentUpdateId.value === undefined) {
+        {{.ModelApi}}.create(formData.value).then(() => {
+          ElMessage.success("新增成功")
+          dialogVisible.value = false
+          getTableData()
+        })
+      } else {
+        {{.ModelApi}}.update(formData.value).then(() => {
+          ElMessage.success("修改成功")
+          dialogVisible.value = false
+          getTableData()
+        })
+      }
+    } else {
+      return false
+    }
+  })
+}
+const resetForm = () => {
+  currentUpdateId.value = undefined
+}
+//#endregion
+
+//#region 删
+const handleDelete = (row: any) => {
+  ElMessageBox.confirm(`正在删除{{jstxt .Comment}}：${row.username}，确认删除？`, "提示", {
+    confirmButtonText: "确定",
+    cancelButtonText: "取消",
+    type: "warning"
+  }).then(() => {
+    {{.ModelApi}}.deleteIt(row.{{.ColPk.ColumnJsonName}}).then(() => {
+      ElMessage.success("删除成功")
+      getTableData()
+    })
+  })
+}
+//#endregion
+
+//#region 改
+const currentUpdateId = ref<undefined | string | number>(undefined)
+const handleUpdate = (row: I{{.ModelJs}}) => {
+  currentUpdateId.value = row.{{.ColPk.ColumnJsonName }}
+  dialogVisible.value = true
+  formData.value = Object.assign({},row)
+}
+//#endregion
+
+//#region 查
+const tableData = ref<I{{.ModelJs}}[]>([])
+const searchFormRef = ref<FormInstance | null>(null)
+const searchData = reactive<ISearch{{.ModelJs}}>({
+   {{range $i,$v := .Columns}}{{if eq $v.IsSearchField true}}{{$v.ColumnJsonName}}:{{if eq $v.DataType  "int"}} 0 {{else if eq $v.DataType  "bigint"}} 0 {{else if eq $v.DataType  "varchar"}} "" {{else}} undefined {{end}},{{end}}{{end}} 
+})
+const getTableData = () => {
+  loading.value = true
+  searchData.pagefrom = paginationData.currentPage
+  searchData.pagesize = paginationData.pageSize
+  {{.ModelApi}}.search (searchData)
+    .then((res) => {
+      paginationData.total = res.total
+      tableData.value = res.rows
+    })
+    .catch(() => {
+      tableData.value = []
+    })
+    .finally(() => {
+      loading.value = false
+    })
+}
+const handleSearch = () => {
+  if (paginationData.currentPage === 1) {
+    getTableData()
+  }
+  paginationData.currentPage = 1
+}
+const resetSearch = () => {
+  searchFormRef.value?.resetFields()
+  if (paginationData.currentPage === 1) {
+    getTableData()
+  }
+  paginationData.currentPage = 1
+}
+const handleRefresh = () => {
+  getTableData()
+}
+//#endregion
+
+/** 监听分页参数的变化 */
+watch([() => paginationData.currentPage, () => paginationData.pageSize], getTableData, { immediate: true })
+</script>
+
+<style lang="scss" scoped>
+  </style>
+{{end}}  

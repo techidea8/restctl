@@ -1,0 +1,21 @@
+{{define "./console/src/api/types.ts.tpl"}}
+// 搜索的结构体
+export interface ISearch{
+  pagefrom? :number      
+	pagesize? : number      
+	descBy?   : string   
+	ascBy?    : string   
+	datefrom? : string 
+	dateto?   : string 
+	deleted?  : number
+  total?:number     
+  }
+
+export interface IResponse<T>{
+    code:number
+    data?:T
+    rows?:T[],
+    msg?:string
+}
+    
+{{end}}
