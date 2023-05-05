@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -21,24 +22,22 @@ import (
 )
 
 type Column struct {
-	ColumnName      string         `json:"colname"`     //role_id
-	ColumnJsonName  string         `json:"coljsonname"` //roleId
-	DataType        string         `json:"datatype"`    //bigint(20)
-	CharMaxLen      int            `json:"maxlen"`      //20
-	ColumnType      string         `json:"coltype"`     //PRI
-	IsNullAble      string         `json:"isNullAble"`
-	DefaultValue    sql.NullString `json:"defaultvalue"` //PRI
-	Nump            int            `json:"nump"`         //20
-	Nums            int            `json:"nums"`         //5
-	Comment         string         `json:"comment"`      //字段描述
-	DataTypeJava    string         `json:"datatypejava"` //String
-	DataTypeGo      string         `json:"datatypego"`   //string
-	ColumnKey       string         `json:"columnkey"`    //
-	Extra           string         `json:"extra"`
-	OrdinalPosition string         `json:"position"` // 原始位置
-	ModelTag        template.HTML  `json:"modeltag"`
-	ArgTag          template.HTML  `json:"argtag"`
-	IsArg bool `json:"isArg"`
+	ColumnName      string        `json:"colname"`      //role_id
+	ColumnJsonName  template.JS        `json:"coljsonname"`  //roleId
+	DataType        string        `json:"datatype"`     //bigint(20)
+	CharMaxLen      int           `json:"maxlen"`       //20
+	ColumnType      string        `json:"coltype"`      //PRI
+	Nump            int           `json:"nump"`         //20
+	Nums            int           `json:"nums"`         //5
+	Comment         string        `json:"comment"`      //字段描述
+	DataTypeJava    string        `json:"datatypejava"` //String
+	DataTypeGo      string        `json:"datatypego"`   //string
+	ColumnKey       string        `json:"columnkey"`    //
+	Extra           string        `json:"extra"`
+	OrdinalPosition string        `json:"position"` // 原始位置
+	ModelTag        template.HTML `json:"modeltag"`
+	ArgTag          template.HTML `json:"argtag"`
+	IsSearchField           bool `json:"isArg"`
 }
 
 func (col *Column) IsKey() bool {
@@ -59,35 +58,33 @@ type DstData struct {
 	TableName  string      `json:"tablename"`
 	ModelL     string      `json:"modell"`
 	ModelApi   template.JS `json:"modelapi"`
+	ModelJs   template.JS `json:"modeljs"`
+	ModelLJs   template.JS `json:"modelljs"`
 	DefaultObj template.JS `json:"defaultobj"`
 	Columns    []Column    `json:"columns"`
 	ColPk      Column      `json:"colpk"`
 	Comment    string      `json:"comment"`
 	Now        string      `json:"now"`
-	ExternPkg  []string    `json:"externPkg"`
-	HasImport  bool
 }
 
-func newDstData() *DstData {
-	return &DstData{
-		ExternPkg: make([]string, 0),
-		Columns:   make([]Column, 0),
-		HasImport: false,
-	}
-}
-func ucfirst(str string) string {
+func ucfirst(in any) string {
+	str := fmt.Sprintf("%s",in)
 	for i, v := range str {
 		return string(unicode.ToUpper(v)) + str[i+1:]
 	}
 	return ""
 }
-func lcfirst(str string) string {
+func lcfirst(in any) string {
+	str := fmt.Sprintf("%s",in)
 	for i, v := range str {
 		return string(unicode.ToLower(v)) + str[i+1:]
 	}
 	return ""
 }
-
+func jstxt(args ...string)template.JSStr{
+	str := strings.Join(args,"")
+	return template.JSStr(str)
+}
 // abc_def_ghi=> AbcDefGhi
 func transfer(in string) string {
 	dstdata := make([]string, 0)
@@ -170,7 +167,6 @@ func datatype(col Column, lang string) string {
 	} else {
 		return col.DataType
 	}
-
 }
 
 var baseModel []string = []string{
@@ -190,44 +186,31 @@ func contains(arr []string, str string) bool {
 }
 
 // 构造tag
-func buildtag(col *Column, useGorm bool, lang string) template.HTML {
+func buildtag(col Column, useGorm bool, lang string) template.HTML {
 	fieldname := transfer(col.ColumnName)
 	lname := lcfirst(fieldname)
 	//如果是一些关键数值那么直接处理
 	if contains(filedsIgnored, col.ColumnName) {
 		return ""
 	}
-	ret := fieldname + " " + datatype(*col, lang) + " " + " `" + "json:\"" + lname + "\" form:\"" + lname + "\""
+	ret := fieldname + " " + datatype(col, lang) + " " + " `" + "json:\"" + lname + "\" form:\"" + lname + "\""
 	//fmt.Println(ret,lang,datatype(col, lang))
 	if col.DataType == "date" || col.DataType == "datetime" {
-		ret = ret + ` time_format:"2006-01-02 15:04:05" time_utc:"1" `
+		ret = ret + ` time_format:"2006-01-02 15:04:05" time_utc:"1"`
 	}
 	if useGorm {
-		tmp := make([]string, 0)
-		if col.IsKey() {
-			tmp = append(tmp, "primaryKey")
-		}
-		if col.ColumnKey != "" && !col.IsKey() {
-			tmp = append(tmp, "index")
-		}
 
-		dtype := col.ColumnType
-		if col.IsNullAble == "NO" {
-			dtype += " not null "
+		ret = ret + ` gorm:"comment:` + col.Comment
+		if col.DataType == "varchar" {
+			if col.CharMaxLen == 0 {
+				col.CharMaxLen = 250
+			}
+			ret = ret + `;type:varchar(` + strconv.Itoa(col.CharMaxLen) + `)`
 		}
-		if col.Extra != "" {
-			dtype += " " + col.Extra + " "
-		}
-		tmp = append(tmp, "type:"+dtype)
-
-		if col.DefaultValue.Valid {
-			tmp = append(tmp, "default:"+col.DefaultValue.String)
-		}
-		tmp = append(tmp, "comment:"+col.Comment)
-		ret = ret + ` gorm:"` + strings.Join(tmp, ";") + `" `
+		ret = ret + "\"` "
+	} else {
+		ret = ret + "`"
 	}
-
-	ret = ret + "`"
 
 	return template.HTML(ret)
 }
@@ -268,7 +251,7 @@ var trimprefix = flag.String("trimprefix", "", "trim the prefix of tablename use
 
 var lang = flag.String("lang", "go", "language eg:go/java")
 
-var condtionArgs = flag.String("args", "", "is arg for search ,splite with ,")
+var searchfield = flag.String("searchfield", "", "field for search,split with , or space when has more than one")
 
 var model = ""
 var config *Config = new(Config)
@@ -345,10 +328,8 @@ func main() {
 		v.SetDefault("table", "test")
 	}
 
-	if config.Lang == "" {
-		if config.Lang != *lang {
-			v.SetDefault("table", *lang)
-		}
+	if config.Lang != *lang {
+		v.SetDefault("table", *lang)
 	}
 
 	//设置模板
@@ -432,6 +413,7 @@ func main() {
 	tmpls = tmpls.Funcs(template.FuncMap{
 		"ucfirst": ucfirst,
 		"lcfirst": lcfirst,
+		"jstxt":jstxt,
 	})
 	if tmpls, err = tmpls.ParseGlob(config.Tpldir + "/*"); err != nil {
 		fmt.Println(err)
@@ -459,54 +441,50 @@ func main() {
 
 		}
 
-		rows, err := MtsqlDb.Query(`select COLUMN_NAME ,DATA_TYPE,IFNULL(CHARACTER_MAXIMUM_LENGTH,0),COLUMN_TYPE,IFNULL(NUMERIC_PRECISION,0),IFNULL(NUMERIC_SCALE,0),COLUMN_COMMENT,COLUMN_DEFAULT,IS_NULLABLE,COLUMN_KEY,EXTRA,ORDINAL_POSITION  from information_schema.COLUMNS where  table_schema = ? and  table_name = ?`, dbname, tablename)
+		rows, err := MtsqlDb.Query(`select COLUMN_NAME ,DATA_TYPE,IFNULL(CHARACTER_MAXIMUM_LENGTH,0),COLUMN_TYPE,IFNULL(NUMERIC_PRECISION,0),IFNULL(NUMERIC_SCALE,0),COLUMN_COMMENT,column_key,extra,ORDINAL_POSITION  from information_schema.COLUMNS where  table_schema = ? and  table_name = ?`, dbname, tablename)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 		//输出模板
-		dstdata := newDstData()
+		dstdata := new(DstData)
 		dstdata.Package = config.Package
 		dstdata.Model = ucfirst(transfer(model))
+		dstdata.ModelJs = template.JS(ucfirst(transfer(model)))
 		dstdata.ModelL = lcfirst(transfer(model))
+		dstdata.ModelLJs = template.JS(lcfirst(transfer(model)))
 		//
-		tmppkg := map[string]bool{}
 		for rows.Next() {
 
 			col := Column{}
-			err := rows.Scan(&col.ColumnName, &col.DataType, &col.CharMaxLen, &col.ColumnType, &col.Nump, &col.Nums, &col.Comment, &col.DefaultValue, &col.IsNullAble, &col.ColumnKey, &col.Extra, &col.OrdinalPosition)
+			err := rows.Scan(&col.ColumnName, &col.DataType, &col.CharMaxLen, &col.ColumnType, &col.Nump, &col.Nums, &col.Comment, &col.ColumnKey, &col.Extra, &col.OrdinalPosition)
 			if err != nil {
 				fmt.Println(err.Error())
 				return
 			}
 			//转换成abC的形式
-			col.ColumnJsonName = lcfirst(transfer(col.ColumnName))
-			col.ModelTag = buildtag(&col, true, config.Lang)
-			col.ArgTag = buildtag(&col, false, config.Lang)
+			col.ColumnJsonName = template.JS(lcfirst(transfer(col.ColumnName)))
+			col.ModelTag = buildtag(col, true, config.Lang)
+			col.ArgTag = buildtag(col, false, config.Lang)
+			if ""!=*searchfield {
+				col.IsSearchField = true
+			}else if !strings.Contains(*searchfield,string(col.ColumnJsonName)){
+				col.IsSearchField = false
+			}else{
+				col.IsSearchField = true
+			}
 			col.DataTypeGo = datatype(col, "go")
 			col.DataTypeJava = datatype(col, "java")
-			if col.DataTypeGo == "core.DateTime" || col.DataTypeGo == "core.Date" {
-				tmppkg[dstdata.Package+"/core"] = true
-			}
-			col.IsArg = strings.Contains(*condtionArgs,col.ColumnJsonName)
 			columns = append(columns, col)
 			if col.IsKey() {
 				dstdata.ColPk = col
 			}
 		}
-
 		//输出表注释
 		if len(columns) == 0 {
 			fmt.Printf("%s.%s not exist \n", dbname, tablename)
 			continue
 		}
-		for k := range tmppkg {
-			dstdata.ExternPkg = append(dstdata.ExternPkg, k)
-		}
-		if dstdata.ColPk.DataType == "string" || len(dstdata.ExternPkg) > 0 {
-			dstdata.HasImport = true
-		}
-
 		dstdata.Columns = columns
 		dstdata.ModelApi = template.JS(lcfirst(transfer(model)) + "Api")
 		dstdata.TableName = tablename
